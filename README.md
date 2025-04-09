@@ -91,6 +91,8 @@ Access the dashboard at `http://localhost:8000/dashboard` to view:
 - Violation statistics
 - Top performing DAGs
 
+<!-- Place the dashboard overview screenshot in docs/images/dashboard_overview.png -->
+
 ### Metrics View
 
 View detailed metrics at `http://localhost:8000/metrics` including:
@@ -99,6 +101,8 @@ View detailed metrics at `http://localhost:8000/metrics` including:
 - Duration statistics
 - Readiness scores
 
+<!-- Place the metrics dashboard screenshot in docs/images/metrics_dashboard.png -->
+
 ### SLA Management
 
 Configure and manage SLAs at `http://localhost:8000/rules`:
@@ -106,4 +110,14 @@ Configure and manage SLAs at `http://localhost:8000/rules`:
 - Set severity levels
 - Monitor violations
 - Track compliance
+
+## Screenshots
+
+### Dashboard
+<!-- Place the dashboard overview screenshot in docs/images/dashboard_overview.png -->
+![Dashboard](docs/images/dashboard_overview.png)
+
+### Metrics
+<!-- Place the metrics dashboard screenshot in docs/images/metrics_dashboard.png -->
+![Metrics](docs/images/metrics_dashboard.png)
 
