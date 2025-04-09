@@ -7,23 +7,39 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        :root {
+            --primary: #5B6AE0;
+            --primary-dark: #4F58C3;
+            --secondary: #EC4899;
+            --background: #F5F8FA;
+            --surface: #FFFFFF;
+            --surface-light: #F0F4F8;
+            --text: #2E3440;
+            --text-secondary: #6C7793;
+            --success: #4CAF50;
+            --error: #F44336;
+            --warning: #FF9800;
+            --info: #2196F3;
+            --border: #E4EBF5;
+        }
+        
         .violations-container {
             max-width: calc(100% - 8rem); /* 6rem sidebar expanded + 2rem space */
             margin-left: 2rem; /* Space between sidebar and content */
         }
         .table-row-hover:hover {
-            background: linear-gradient(to right, #ECFDF5, #F5F6F5); /* Green to gray gradient */
-            color: #10B981; /* Emerald green */
+            background: rgba(91, 106, 224, 0.1);
+            color: var(--primary);
         }
     </style>
 </head>
-<body class="bg-[#F5F6F5] text-[#4A5568] font-sans antialiased">
+<body class="bg-[var(--background)] text-[var(--text)] font-sans antialiased">
 <div class="violations-container mx-auto pt-6 pb-6">
-    <div class="bg-[#FFFFFF] rounded-lg p-6 shadow-lg">
-        <h1 class="text-xl font-semibold text-[#F05A28] mb-6">Violations</h1>
+    <div class="bg-[var(--surface)] rounded-lg p-6 shadow-lg border border-[var(--border)]">
+        <h1 class="text-xl font-semibold text-[var(--primary)] mb-6">Violations</h1>
         <div class="overflow-x-auto">
-            <table class="w-full text-sm text-left text-[#4A5568]">
-                <thead class="bg-[#F5F6F5] text-[#4A5568]">
+            <table class="w-full text-sm text-left text-[var(--text)]">
+                <thead class="bg-[var(--surface-light)] text-[var(--text-secondary)]">
                 <tr>
                     <th class="px-4 py-2 rounded-tl-md">DAG ID</th>
                     <th class="px-4 py-2">Task ID</th>
@@ -35,7 +51,7 @@
                 </thead>
                 <tbody>
                 {{range .Violations}}
-                <tr class="border-b border-[#E6E6E6] table-row-hover transition-colors">
+                <tr class="border-b border-[var(--border)] table-row-hover transition-colors">
                     <td class="px-4 py-2">{{.DagID}}</td>
                     <td class="px-4 py-2">{{if .TaskID}}{{.TaskID}}{{else}}N/A{{end}}</td>
                     <td class="px-4 py-2">{{.FieldName}}</td>
@@ -45,7 +61,7 @@
                 </tr>
                 {{else}}
                 <tr>
-                    <td colspan="6" class="px-4 py-2 text-center text-[#6B7280]">No violations detected</td>
+                    <td colspan="6" class="px-4 py-2 text-center text-[var(--text-secondary)]">No violations detected</td>
                 </tr>
                 {{end}}
                 </tbody>

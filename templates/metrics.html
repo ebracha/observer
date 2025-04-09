@@ -7,27 +7,43 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        :root {
+            --primary: #6366F1;
+            --primary-dark: #4F46E5;
+            --secondary: #EC4899;
+            --background: #0F172A;
+            --surface: #1E293B;
+            --surface-light: #334155;
+            --text: #F1F5F9;
+            --text-secondary: #94A3B8;
+            --success: #10B981;
+            --error: #EF4444;
+            --warning: #F59E0B;
+            --info: #3B82F6;
+            --border: #334155;
+        }
+        
         .metrics-container {
             max-width: calc(100% - 8rem);
             margin-left: 2rem;
         }
         .table-row-hover:hover {
-            background: linear-gradient(to right, #ECFDF5, #F5F6F5);
-            color: #10B981;
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--primary);
         }
     </style>
 </head>
-<body class="bg-[#F5F6F5] text-[#4A5568] font-sans antialiased">
+<body class="bg-[var(--background)] text-[var(--text)] font-sans antialiased">
 <div class="metrics-container mx-auto pt-6 pb-6">
-    <div class="bg-[#FFFFFF] rounded-lg p-6 shadow-lg">
-        <h1 class="text-xl font-semibold text-[#F05A28] mb-6">Metrics</h1>
+    <div class="bg-[var(--surface)] rounded-lg p-6 shadow-lg border border-[var(--border)]">
+        <h1 class="text-xl font-semibold text-[var(--primary)] mb-6">Metrics</h1>
 
         <!-- Charts Row -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div class="bg-[#FFFFFF] p-4 rounded-md shadow-lg">
+            <div class="bg-[var(--surface)] p-4 rounded-md shadow-lg border border-[var(--border)]">
                 <div class="flex justify-between items-center mb-2">
-                    <h3 class="text-sm text-[#4A5568]">Duration Trend</h3>
-                    <select id="timeframe" class="p-1 bg-[#F9FAFB] text-[#4A5568] rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-[#10B981]">
+                    <h3 class="text-sm text-[var(--text-secondary)]">Duration Trend</h3>
+                    <select id="timeframe" class="p-1 bg-[var(--surface-light)] text-[var(--text)] rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-[var(--primary)] border border-[var(--border)]">
                         <option value="days">Days</option>
                         <option value="hours">Hours</option>
                         <option value="minutes">Minutes</option>
@@ -35,19 +51,19 @@
                 </div>
                 <canvas id="weeklyTrendChart" class="max-h-[200px]"></canvas>
             </div>
-            <div class="bg-[#FFFFFF] p-4 rounded-md shadow-lg">
-                <h3 class="text-sm text-[#4A5568] text-center mb-2">Metric Freshness (%)</h3>
+            <div class="bg-[var(--surface)] p-4 rounded-md shadow-lg border border-[var(--border)]">
+                <h3 class="text-sm text-[var(--text-secondary)] text-center mb-2">Metric Freshness (%)</h3>
                 <canvas id="freshnessGauge" class="max-h-[200px]"></canvas>
             </div>
-            <div class="bg-[#FFFFFF] p-4 rounded-md shadow-lg">
-                <h3 class="text-sm text-[#4A5568] text-center mb-2">Pipeline Readiness (%)</h3>
+            <div class="bg-[var(--surface)] p-4 rounded-md shadow-lg border border-[var(--border)]">
+                <h3 class="text-sm text-[var(--text-secondary)] text-center mb-2">Pipeline Readiness (%)</h3>
                 <canvas id="readinessBar" class="max-h-[200px]"></canvas>
             </div>
         </div>
 
         <div class="overflow-x-auto">
-            <table class="w-full text-sm text-left text-[#4A5568]">
-                <thead class="bg-[#F5F6F5] text-[#4A5568]">
+            <table class="w-full text-sm text-left text-[var(--text)]">
+                <thead class="bg-[var(--surface-light)] text-[var(--text-secondary)]">
                 <tr>
                     <th class="px-4 py-2 rounded-tl-md">DAG ID</th>
                     <th class="px-4 py-2">Task ID</th>
@@ -58,7 +74,7 @@
                 </thead>
                 <tbody>
                 {{range .Metrics}}
-                <tr class="border-b border-[#E6E6E6] table-row-hover transition-colors">
+                <tr class="border-b border-[var(--border)] table-row-hover transition-colors">
                     <td class="px-4 py-2">{{.DagID}}</td>
                     <td class="px-4 py-2">{{if .TaskID}}{{.TaskID}}{{else}}N/A{{end}}</td>
                     <td class="px-4 py-2">{{.EventType}}</td>
@@ -67,7 +83,7 @@
                 </tr>
                 {{else}}
                 <tr>
-                    <td colspan="5" class="px-4 py-2 text-center text-[#6B7280]">No metrics available</td>
+                    <td colspan="5" class="px-4 py-2 text-center text-[var(--text-secondary)]">No metrics available</td>
                 </tr>
                 {{end}}
                 </tbody>
@@ -111,7 +127,7 @@
                 labels: ['Freshness', 'Stale'],
                 datasets: [{
                     data: [freshness, 100 - freshness],
-                    backgroundColor: ['#10B981', '#E5E7EB']
+                    backgroundColor: ['#5B6AE0', '#E4EBF5']
                 }]
             },
             options: {
@@ -119,7 +135,29 @@
                 maintainAspectRatio: false,
                 circumference: 180,
                 rotation: -90,
-                plugins: { legend: { display: false } }
+                plugins: { 
+                    legend: { 
+                        display: false 
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.label + ': ' + Math.round(context.raw) + '%';
+                            }
+                        },
+                        titleFont: {
+                            family: "'Inter', sans-serif"
+                        },
+                        bodyFont: {
+                            family: "'Inter', sans-serif"
+                        },
+                        backgroundColor: 'rgba(46, 52, 64, 0.8)',
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#FFFFFF',
+                        borderColor: '#5B6AE0',
+                        borderWidth: 1
+                    }
+                }
             }
         });
 
@@ -134,14 +172,55 @@
                 labels: ['Ready', 'At Risk'],
                 datasets: [
                     { data: [avgReadiness, 100 - avgReadiness],
-                        backgroundColor: ['#10B981', '#EF4444'] }
+                        backgroundColor: ['#5B6AE0', '#F44336'] }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                scales: { y: { beginAtZero: true, max: 100 } },
-                plugins: { legend: { display: false } }
+                scales: { 
+                    y: { 
+                        beginAtZero: true, 
+                        max: 100,
+                        grid: {
+                            color: 'rgba(108, 119, 147, 0.1)'
+                        },
+                        ticks: {
+                            color: '#6C7793'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: 'rgba(108, 119, 147, 0.1)'
+                        },
+                        ticks: {
+                            color: '#6C7793'
+                        }
+                    }
+                },
+                plugins: { 
+                    legend: { 
+                        display: false 
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.label + ': ' + Math.round(context.raw) + '%';
+                            }
+                        },
+                        titleFont: {
+                            family: "'Inter', sans-serif"
+                        },
+                        bodyFont: {
+                            family: "'Inter', sans-serif"
+                        },
+                        backgroundColor: 'rgba(46, 52, 64, 0.8)',
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#FFFFFF',
+                        borderColor: '#5B6AE0',
+                        borderWidth: 1
+                    }
+                }
             }
         });
 
@@ -178,15 +257,58 @@
                     datasets: [{
                         label: 'Avg Duration (s)',
                         data: durations,
-                        borderColor: '#F05A28',
-                        fill: false
+                        borderColor: '#5B6AE0',
+                        backgroundColor: 'rgba(91, 106, 224, 0.2)',
+                        fill: true
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true } },
-                    plugins: { legend: { display: false } }
+                    scales: { 
+                        y: { 
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(108, 119, 147, 0.1)'
+                            },
+                            ticks: {
+                                color: '#6C7793'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(108, 119, 147, 0.1)'
+                            },
+                            ticks: {
+                                color: '#6C7793'
+                            }
+                        }
+                    },
+                    plugins: { 
+                        legend: { 
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: '#6C7793',
+                                font: {
+                                    family: "'Inter', sans-serif"
+                                }
+                            }
+                        },
+                        tooltip: {
+                            titleFont: {
+                                family: "'Inter', sans-serif"
+                            },
+                            bodyFont: {
+                                family: "'Inter', sans-serif"
+                            },
+                            backgroundColor: 'rgba(46, 52, 64, 0.8)',
+                            titleColor: '#FFFFFF',
+                            bodyColor: '#FFFFFF',
+                            borderColor: '#5B6AE0',
+                            borderWidth: 1
+                        }
+                    }
                 }
             });
             console.log("Trend chart updated for timeframe:", timeframe);

@@ -6,23 +6,39 @@
     <title>Connected Clients</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        :root {
+            --primary: #5B6AE0;
+            --primary-dark: #4F58C3;
+            --secondary: #EC4899;
+            --background: #F5F8FA;
+            --surface: #FFFFFF;
+            --surface-light: #F0F4F8;
+            --text: #2E3440;
+            --text-secondary: #6C7793;
+            --success: #4CAF50;
+            --error: #F44336;
+            --warning: #FF9800;
+            --info: #2196F3;
+            --border: #E4EBF5;
+        }
+        
         .clients-container {
             max-width: calc(100% - 8rem); /* 6rem sidebar expanded + 2rem space */
             margin-left: 2rem; /* Space between sidebar and content */
         }
         .table-row-hover:hover {
-            background: linear-gradient(to right, #ECFDF5, #F5F6F5); /* Green to gray gradient */
-            color: #10B981; /* Emerald green */
+            background: rgba(91, 106, 224, 0.1);
+            color: var(--primary);
         }
     </style>
 </head>
-<body class="bg-[#F5F6F5] text-[#4A5568] font-sans antialiased">
+<body class="bg-[var(--background)] text-[var(--text)] font-sans antialiased">
 <div class="clients-container mx-auto pt-6 pb-6">
-    <div class="bg-[#FFFFFF] rounded-lg p-6 shadow-lg">
-        <h2 class="text-xl font-semibold text-[#F05A28] mb-6">Connected Clients</h2>
+    <div class="bg-[var(--surface)] rounded-lg p-6 shadow-lg border border-[var(--border)]">
+        <h2 class="text-xl font-semibold text-[var(--primary)] mb-6">Connected Clients</h2>
         <div class="overflow-x-auto">
-            <table class="w-full text-sm text-left text-[#4A5568]">
-                <thead class="text-xs uppercase bg-[#F5F6F5] text-[#4A5568]">
+            <table class="w-full text-sm text-left text-[var(--text)]">
+                <thead class="text-xs uppercase bg-[var(--surface-light)] text-[var(--text-secondary)]">
                 <tr>
                     <th class="px-6 py-3 rounded-tl-md">Type</th>
                     <th class="px-6 py-3">Hostname</th>
@@ -33,9 +49,9 @@
                 </thead>
                 <tbody>
                 {{range $i, $client := .}}
-                <tr class="{{if eq (mod $i 2) 0}}bg-[#FFFFFF]{{else}}bg-[#F9FAFB]{{end}} border-b border-[#E6E6E6] table-row-hover transition-colors duration-200">
+                <tr class="{{if eq (mod $i 2) 0}}bg-[var(--surface)]{{else}}bg-[rgba(91,106,224,0.05)]{{end}} border-b border-[var(--border)] table-row-hover transition-colors duration-200">
                     <td class="px-6 py-4">
-                        <span class="inline-block px-2 py-1 text-xs font-medium rounded-full {{if eq .Type "Airflow"}}bg-[#ECFDF5] text-[#10B981]{{else if eq .Type "Control-M"}}bg-[#EFF6FF] text-[#3B82F6]{{else}}bg-[#F3F4F6] text-[#6B7280]{{end}}">
+                        <span class="inline-block px-2 py-1 text-xs font-medium rounded-full {{if eq .Type "Airflow"}}bg-[rgba(76,175,80,0.2)] text-[#4CAF50]{{else if eq .Type "Control-M"}}bg-[rgba(33,150,243,0.2)] text-[#2196F3]{{else}}bg-[rgba(108,119,147,0.2)] text-[var(--text-secondary)]{{end}}">
                         {{.Type}}
                         </span>
                     </td>
@@ -45,8 +61,8 @@
                     <td class="px-6 py-4">{{.Connection}}</td>
                 </tr>
                 {{else}}
-                <tr class="bg-[#FFFFFF]">
-                    <td colspan="5" class="px-6 py-4 text-center text-[#6B7280]">No clients connected</td>
+                <tr class="bg-[var(--surface)]">
+                    <td colspan="5" class="px-6 py-4 text-center text-[var(--text-secondary)]">No clients connected</td>
                 </tr>
                 {{end}}
                 </tbody>

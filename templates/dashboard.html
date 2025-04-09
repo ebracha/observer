@@ -7,40 +7,56 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        :root {
+            --primary: #6366F1;
+            --primary-dark: #4F46E5;
+            --secondary: #EC4899;
+            --background: #0F172A;
+            --surface: #1E293B;
+            --surface-light: #334155;
+            --text: #F1F5F9;
+            --text-secondary: #94A3B8;
+            --success: #10B981;
+            --error: #EF4444;
+            --warning: #F59E0B;
+            --info: #3B82F6;
+            --border: #334155;
+        }
+        
         .dashboard-container {
             max-width: calc(100% - 8rem); /* 6rem sidebar expanded + 2rem space */
             margin-left: 2rem; /* Space between sidebar and content */
         }
     </style>
 </head>
-<body class="bg-[#F5F6F5] text-[#4A5568] font-sans antialiased">
+<body class="bg-[var(--background)] text-[var(--text)] font-sans antialiased">
 <div class="dashboard-container mx-auto pt-6 pb-6">
-    <div class="bg-[#FFFFFF] rounded-lg p-6 shadow-lg">
-        <h1 class="text-xl font-semibold text-[#F05A28] mb-6">Overview</h1>
+    <div class="bg-[var(--surface)] rounded-lg p-6 shadow-lg border border-[var(--border)]">
+        <h1 class="text-xl font-semibold text-[var(--primary)] mb-6">Overview</h1>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div class="bg-[#ECFDF5] p-4 rounded-md text-center">
-                <h3 class="text-sm text-[#4A5568]">Compliance Rate</h3>
-                <p class="text-2xl font-bold text-[#10B981] mt-2">{{printf "%.1f" .ComplianceRate}}%</p>
-                <p class="text-xs text-[#6B7280]">Pipeline Reliability</p>
+            <div class="bg-[rgba(16,185,129,0.1)] p-4 rounded-md text-center border border-[rgba(16,185,129,0.2)]">
+                <h3 class="text-sm text-[var(--text-secondary)]">Compliance Rate</h3>
+                <p class="text-2xl font-bold text-[var(--success)] mt-2">{{printf "%.1f" .ComplianceRate}}%</p>
+                <p class="text-xs text-[var(--text-secondary)]">Pipeline Reliability</p>
             </div>
-            <div class="bg-[#FEF2F2] p-4 rounded-md text-center">
-                <h3 class="text-sm text-[#4A5568]">Total Violations</h3>
-                <p class="text-2xl font-bold text-[#EF4444] mt-2">{{len .Violations}}</p>
-                <p class="text-xs text-[#6B7280]">SLA Breaches</p>
+            <div class="bg-[rgba(239,68,68,0.1)] p-4 rounded-md text-center border border-[rgba(239,68,68,0.2)]">
+                <h3 class="text-sm text-[var(--text-secondary)]">Total Violations</h3>
+                <p class="text-2xl font-bold text-[var(--error)] mt-2">{{len .Violations}}</p>
+                <p class="text-xs text-[var(--text-secondary)]">SLA Breaches</p>
             </div>
-            <div class="bg-[#EFF6FF] p-4 rounded-md text-center">
-                <h3 class="text-sm text-[#4A5568]">Top DAG</h3>
-                <p class="text-lg font-bold text-[#3B82F6] mt-2">
+            <div class="bg-[rgba(59,130,246,0.1)] p-4 rounded-md text-center border border-[rgba(59,130,246,0.2)]">
+                <h3 class="text-sm text-[var(--text-secondary)]">Top DAG</h3>
+                <p class="text-lg font-bold text-[var(--info)] mt-2">
                     {{with $top := .TopDagsJSON | unmarshal}}{{range $k, $v := $top}}{{$k}} ({{$v}}){{break}}{{end}}{{end}}
                 </p>
-                <p class="text-xs text-[#6B7280]">Highest Violations</p>
+                <p class="text-xs text-[var(--text-secondary)]">Highest Violations</p>
             </div>
         </div>
 
-        <div class="bg-[#FFFFFF] rounded-lg p-6 shadow-lg mb-6">
+        <div class="bg-[var(--surface)] rounded-lg p-6 shadow-lg mb-6 border border-[var(--border)]">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-semibold text-[#F05A28]">Violation Trend</h2>
-                <select id="granularitySelect" class="p-2 bg-[#FEE9E2] text-[#4A5568] rounded-md focus:outline-none focus:ring-2 focus:ring-[#F05A28]">
+                <h2 class="text-xl font-semibold text-[var(--primary)]">Violation Trend</h2>
+                <select id="granularitySelect" class="p-2 bg-[var(--surface-light)] text-[var(--text)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--primary)] border border-[var(--border)]">
                     <option value="Days" selected>Days</option>
                     <option value="Hours">Hours</option>
                     <option value="Minutes">Minutes</option>
@@ -73,31 +89,59 @@
                     datasets: [{
                         label: 'Total Violations',
                         data: allTrendData[granularity].map(d => d.Count),
-                        borderColor: '#10B981', /* Green line */
-                        backgroundColor: 'rgba(16, 185, 129, 0.2)', /* Light green fill */
+                        borderColor: '#5B6AE0', /* Primary color */
+                        backgroundColor: 'rgba(91, 106, 224, 0.2)', /* Light primary fill */
                         fill: true,
                         tension: 0.4,
-                        pointBackgroundColor: '#10B981',
+                        pointBackgroundColor: '#5B6AE0',
                         pointBorderColor: '#FFFFFF',
-                        pointHoverBackgroundColor: '#FFFFFF',
-                        pointHoverBorderColor: '#10B981'
+                        pointHoverBackgroundColor: '#EC4899',
+                        pointHoverBorderColor: '#5B6AE0'
                     }]
                 },
                 options: {
                     responsive: true,
                     scales: {
                         x: {
-                            title: { display: true, text: granularity === 'Days' ? 'Date' : 'Time', color: '#4A5568' },
-                            ticks: { color: '#4A5568', maxTicksLimit: 10 }
+                            title: { display: true, text: granularity === 'Days' ? 'Date' : 'Time', color: '#6C7793' },
+                            ticks: { color: '#6C7793', maxTicksLimit: 10 },
+                            grid: {
+                                color: 'rgba(108, 119, 147, 0.1)'
+                            }
                         },
                         y: {
-                            title: { display: true, text: 'Violations', color: '#4A5568' },
-                            ticks: { color: '#4A5568',  stepSize: 1, precision: 0 },
+                            title: { display: true, text: 'Violations', color: '#6C7793' },
+                            ticks: { color: '#6C7793', stepSize: 1, precision: 0 },
                             min: 0,
-                            suggestedMin: 0
+                            suggestedMin: 0,
+                            grid: {
+                                color: 'rgba(108, 119, 147, 0.1)'
+                            }
                         }
                     },
-                    plugins: { legend: { labels: { color: '#4A5568' } } }
+                    plugins: { 
+                        legend: { 
+                            labels: { 
+                                color: '#6C7793',
+                                font: {
+                                    family: "'Inter', sans-serif"
+                                }
+                            } 
+                        },
+                        tooltip: {
+                            titleFont: {
+                                family: "'Inter', sans-serif"
+                            },
+                            bodyFont: {
+                                family: "'Inter', sans-serif"
+                            },
+                            backgroundColor: 'rgba(46, 52, 64, 0.8)',
+                            titleColor: '#FFFFFF',
+                            bodyColor: '#FFFFFF',
+                            borderColor: '#5B6AE0',
+                            borderWidth: 1
+                        }
+                    }
                 }
             });
             console.log('New chart created for granularity:', granularity);
