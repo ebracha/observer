@@ -1,4 +1,5 @@
 # Airflow Observability Platform
+![image](https://github.com/user-attachments/assets/e1f83c90-cb6b-42ff-805d-8eabd8c13369)
 
 A comprehensive observability and monitoring solution for Apache Airflow, designed to provide real-time insights into your data pipeline health, performance, and compliance.
 
@@ -110,14 +111,3 @@ Configure and manage SLAs at `http://localhost:8000/rules`:
 - Set severity levels
 - Monitor violations
 - Track compliance
-
-## Screenshots
-
-### Dashboard
-<!-- Place the dashboard overview screenshot in docs/images/dashboard_overview.png -->
-![Dashboard](docs/images/dashboard_overview.png)
-
-### Metrics
-<!-- Place the metrics dashboard screenshot in docs/images/metrics_dashboard.png -->
-![Metrics](docs/images/metrics_dashboard.png)
-
