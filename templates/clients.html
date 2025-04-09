@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connected Clients</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .clients-container {
+            max-width: calc(100% - 8rem); /* 6rem sidebar expanded + 2rem space */
+            margin-left: 2rem; /* Space between sidebar and content */
+        }
+        .table-row-hover:hover {
+            background: linear-gradient(to right, #ECFDF5, #F5F6F5); /* Green to gray gradient */
+            color: #10B981; /* Emerald green */
+        }
+    </style>
+</head>
+<body class="bg-[#F5F6F5] text-[#4A5568] font-sans antialiased">
+<div class="clients-container mx-auto pt-6 pb-6">
+    <div class="bg-[#FFFFFF] rounded-lg p-6 shadow-lg">
+        <h2 class="text-xl font-semibold text-[#F05A28] mb-6">Connected Clients</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left text-[#4A5568]">
+                <thead class="text-xs uppercase bg-[#F5F6F5] text-[#4A5568]">
+                <tr>
+                    <th class="px-6 py-3 rounded-tl-md">Type</th>
+                    <th class="px-6 py-3">Hostname</th>
+                    <th class="px-6 py-3">IP Address</th>
+                    <th class="px-6 py-3">Last Seen</th>
+                    <th class="px-6 py-3 rounded-tr-md">Connection Type</th>
+                </tr>
+                </thead>
+                <tbody>
+                {{range $i, $client := .}}
+                <tr class="{{if eq (mod $i 2) 0}}bg-[#FFFFFF]{{else}}bg-[#F9FAFB]{{end}} border-b border-[#E6E6E6] table-row-hover transition-colors duration-200">
+                    <td class="px-6 py-4">
+                        <span class="inline-block px-2 py-1 text-xs font-medium rounded-full {{if eq .Type "Airflow"}}bg-[#ECFDF5] text-[#10B981]{{else if eq .Type "Control-M"}}bg-[#EFF6FF] text-[#3B82F6]{{else}}bg-[#F3F4F6] text-[#6B7280]{{end}}">
+                        {{.Type}}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4">{{.Hostname}}</td>
+                    <td class="px-6 py-4">{{.IP}}</td>
+                    <td class="px-6 py-4">{{.LastSeen}}</td>
+                    <td class="px-6 py-4">{{.Connection}}</td>
+                </tr>
+                {{else}}
+                <tr class="bg-[#FFFFFF]">
+                    <td colspan="5" class="px-6 py-4 text-center text-[#6B7280]">No clients connected</td>
+                </tr>
+                {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</body>
+</html>

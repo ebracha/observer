@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .monitoring-container {
+            max-width: calc(100% - 8rem); /* 6rem sidebar expanded + 2rem space */
+            margin-left: 2rem; /* Space between sidebar and content */
+        }
+        .table-row-hover:hover {
+            background: linear-gradient(to right, #ECFDF5, #F5F6F5); /* Green to gray gradient */
+            color: #10B981; /* Emerald green */
+        }
+    </style>
+</head>
+<body class="bg-[#F5F6F5] text-[#4A5568] font-sans antialiased">
+<div class="monitoring-container mx-auto pt-6 pb-6">
+    <div class="bg-[#FFFFFF] rounded-lg p-6 shadow-lg">
+        <h1 class="text-xl font-semibold text-[#F05A28] mb-6">Monitoring</h1>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-[#ECFDF5] p-4 rounded-md text-center">
+                <h3 class="text-sm text-[#4A5568]">DAG Health</h3>
+                <p class="text-xl font-bold text-[#10B981] mt-2">{{.HealthyCount}} Healthy / <span class="text-[#EF4444]">{{.UnhealthyCount}} Unhealthy</span></p>
+                <p class="text-xs text-[#6B7280]">Healthy = No Violations</p>
+            </div>
+            <div class="bg-[#EFF6FF] p-4 rounded-md text-center">
+                <h3 class="text-sm text-[#4A5568]">Total Metrics Received</h3>
+                <p class="text-2xl font-bold text-[#3B82F6] mt-2">{{.TotalMetrics}}</p>
+                <p class="text-xs text-[#6B7280]">Metric Count</p>
+            </div>
+            <div class="bg-[#FFFBEB] p-4 rounded-md text-center">
+                <h3 class="text-sm text-[#4A5568]">Last Metric Received</h3>
+                <p class="text-lg font-bold text-[#FBBF24] mt-2">{{.LastMetricTime}}</p>
+                <p class="text-xs text-[#6B7280]">Latest Update</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="bg-[#FFFFFF] rounded-lg p-6 shadow-lg">
+                <h2 class="text-xl font-semibold text-[#F05A28] mb-4">Violation Severity</h2>
+                <canvas id="severityPieChart" class="max-h-[250px]"></canvas>
+            </div>
+            <div class="bg-[#FFFFFF] rounded-lg p-6 shadow-lg">
+                <h2 class="text-xl font-semibold text-[#F05A28] mb-4">DAG Run Status</h2>
+                <canvas id="dagRunPieChart" class="max-h-[250px]"></canvas>
+            </div>
+        </div>
+
+        <div class="bg-[#FFFFFF] rounded-lg p-6 shadow-lg mb-6">
+            <h2 class="text-xl font-semibold text-[#F05A28] mb-4">Latest Alerts</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left text-[#4A5568]">
+                    <thead class="bg-[#F5F6F5] text-[#4A5568]">
+                    <tr>
+                        <th class="px-4 py-2 rounded-tl-md">DAG ID</th>
+                        <th class="px-4 py-2">Timestamp</th>
+                        <th class="px-4 py-2 rounded-tr-md">Severity</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {{range .Alerts}}
+                    <tr class="border-b border-[#E6E6E6] table-row-hover transition-colors">
+                        <td class="px-4 py-2">{{.DagID}}</td>
+                        <td class="px-4 py-2">{{.Timestamp}}</td>
+                        <td class="px-4 py-2">{{.Severity}}</td>
+                    </tr>
+                    {{else}}
+                    <tr>
+                        <td colspan="3" class="px-4 py-2 text-center text-[#6B7280]">No recent alerts</td>
+                    </tr>
+                    {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="bg-[#FFFFFF] rounded-lg p-6 shadow-lg">
+            <h2 class="text-xl font-semibold text-[#F05A28] mb-4">Active Rules Violated</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left text-[#4A5568]" id="violationsTable">
+                    <thead class="bg-[#F5F6F5] text-[#4A5568]">
+                    <tr>
+                        <th class="px-4 py-2 rounded-tl-md">DAG ID</th>
+                        <th class="px-4 py-2">Field</th>
+                        <th class="px-4 py-2">Condition</th>
+                        <th class="px-4 py-2">Value</th>
+                        <th class="px-4 py-2">Severity</th>
+                        <th class="px-4 py-2 rounded-tr-md">Timestamp</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {{range .PaginatedViolations}}
+                    <tr class="border-b border-[#E6E6E6] table-row-hover transition-colors">
+                        <td class="px-4 py-2">{{.DagID}}</td>
+                        <td class="px-4 py-2">{{.FieldName}}</td>
+                        <td class="px-4 py-2">{{.Condition}}</td>
+                        <td class="px-4 py-2">{{.Value}}</td>
+                        <td class="px-4 py-2">{{.Severity}}</td>
+                        <td class="px-4 py-2">{{.Timestamp}}</td>
+                    </tr>
+                    {{else}}
+                    <tr>
+                        <td colspan="6" class="px-4 py-2 text-center text-[#6B7280]">No active violations</td>
+                    </tr>
+                    {{end}}
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-4 flex justify-between items-center" id="paginationControls">
+                <button onclick="changePage({{sub .Page 1}})" class="px-4 py-2 bg-[#FEE9E2] text-[#F05A28] rounded-md {{if eq .Page 1}}opacity-50 pointer-events-none{{end}}" id="prevButton">Previous</button>
+                <span class="text-[#4A5568]">Page {{.Page}} of {{.TotalPages}}</span>
+                <button onclick="changePage({{add .Page 1}})" class="px-4 py-2 bg-[#FEE9E2] text-[#F05A28] rounded-md {{if eq .Page .TotalPages}}opacity-50 pointer-events-none{{end}}" id="nextButton">Next</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function initializeCharts() {
+        let severityData = {{.SeverityJSON | safeJS}};
+        console.log('Severity Data:', severityData);
+        if (document.getElementById('severityPieChart').chart) {
+            document.getElementById('severityPieChart').chart.destroy();
+        }
+        document.getElementById('severityPieChart').chart = new Chart(document.getElementById('severityPieChart'), {
+            type: 'pie',
+            data: {
+                labels: Object.keys(severityData),
+                datasets: [{
+                    data: Object.values(severityData),
+                    backgroundColor: ['#DC2626','#FBBF24'], /* Yellow for Minor, Dark Red for Critical */
+                    borderColor: '#FFFFFF',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#4A5568' } } }
+            }
+        });
+
+        let dagRunData = {{.PieJSON | safeJS}};
+        console.log('DAG Run Data:', dagRunData);
+        if (document.getElementById('dagRunPieChart').chart) {
+            document.getElementById('dagRunPieChart').chart.destroy();
+        }
+        document.getElementById('dagRunPieChart').chart = new Chart(document.getElementById('dagRunPieChart'), {
+            type: 'pie',
+            data: {
+                labels: ['Success', 'Failed'],
+                datasets: [{
+                    data: [dagRunData.Success, dagRunData.Failed],
+                    backgroundColor: ['#10B981', '#EF4444'], /* Green for Success, Red for Failed */
+                    borderColor: '#FFFFFF',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#4A5568' } } }
+            }
+        });
+    }
+
+    initializeCharts();
+
+    function changePage(newPage) {
+        fetch('/monitoring?page=' + newPage)
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newTableBody = doc.querySelector('#violationsTable tbody');
+                const newPagination = doc.querySelector('#paginationControls');
+                document.querySelector('#violationsTable tbody').innerHTML = newTableBody.innerHTML;
+                document.querySelector('#paginationControls').innerHTML = newPagination.innerHTML;
+            })
+            .catch(error => console.error('Error fetching page:', error));
+    }
+</script>
+</body>
+</html>

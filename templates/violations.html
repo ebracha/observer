@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Violations</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .violations-container {
+            max-width: calc(100% - 8rem); /* 6rem sidebar expanded + 2rem space */
+            margin-left: 2rem; /* Space between sidebar and content */
+        }
+        .table-row-hover:hover {
+            background: linear-gradient(to right, #ECFDF5, #F5F6F5); /* Green to gray gradient */
+            color: #10B981; /* Emerald green */
+        }
+    </style>
+</head>
+<body class="bg-[#F5F6F5] text-[#4A5568] font-sans antialiased">
+<div class="violations-container mx-auto pt-6 pb-6">
+    <div class="bg-[#FFFFFF] rounded-lg p-6 shadow-lg">
+        <h1 class="text-xl font-semibold text-[#F05A28] mb-6">Violations</h1>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left text-[#4A5568]">
+                <thead class="bg-[#F5F6F5] text-[#4A5568]">
+                <tr>
+                    <th class="px-4 py-2 rounded-tl-md">DAG ID</th>
+                    <th class="px-4 py-2">Task ID</th>
+                    <th class="px-4 py-2">Field</th>
+                    <th class="px-4 py-2">Value</th>
+                    <th class="px-4 py-2">Rule Value</th>
+                    <th class="px-4 py-2 rounded-tr-md">Timestamp</th>
+                </tr>
+                </thead>
+                <tbody>
+                {{range .Violations}}
+                <tr class="border-b border-[#E6E6E6] table-row-hover transition-colors">
+                    <td class="px-4 py-2">{{.DagID}}</td>
+                    <td class="px-4 py-2">{{if .TaskID}}{{.TaskID}}{{else}}N/A{{end}}</td>
+                    <td class="px-4 py-2">{{.FieldName}}</td>
+                    <td class="px-4 py-2">{{.Value}}</td>
+                    <td class="px-4 py-2">{{.RuleValue}}</td>
+                    <td class="px-4 py-2">{{.Timestamp.Format "2006-01-02 15:04"}}</td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="6" class="px-4 py-2 text-center text-[#6B7280]">No violations detected</td>
+                </tr>
+                {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .dashboard-container {
+            max-width: calc(100% - 8rem); /* 6rem sidebar expanded + 2rem space */
+            margin-left: 2rem; /* Space between sidebar and content */
+        }
+    </style>
+</head>
+<body class="bg-[#F5F6F5] text-[#4A5568] font-sans antialiased">
+<div class="dashboard-container mx-auto pt-6 pb-6">
+    <div class="bg-[#FFFFFF] rounded-lg p-6 shadow-lg">
+        <h1 class="text-xl font-semibold text-[#F05A28] mb-6">Overview</h1>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-[#ECFDF5] p-4 rounded-md text-center">
+                <h3 class="text-sm text-[#4A5568]">Compliance Rate</h3>
+                <p class="text-2xl font-bold text-[#10B981] mt-2">{{printf "%.1f" .ComplianceRate}}%</p>
+                <p class="text-xs text-[#6B7280]">Pipeline Reliability</p>
+            </div>
+            <div class="bg-[#FEF2F2] p-4 rounded-md text-center">
+                <h3 class="text-sm text-[#4A5568]">Total Violations</h3>
+                <p class="text-2xl font-bold text-[#EF4444] mt-2">{{len .Violations}}</p>
+                <p class="text-xs text-[#6B7280]">SLA Breaches</p>
+            </div>
+            <div class="bg-[#EFF6FF] p-4 rounded-md text-center">
+                <h3 class="text-sm text-[#4A5568]">Top DAG</h3>
+                <p class="text-lg font-bold text-[#3B82F6] mt-2">
+                    {{with $top := .TopDagsJSON | unmarshal}}{{range $k, $v := $top}}{{$k}} ({{$v}}){{break}}{{end}}{{end}}
+                </p>
+                <p class="text-xs text-[#6B7280]">Highest Violations</p>
+            </div>
+        </div>
+
+        <div class="bg-[#FFFFFF] rounded-lg p-6 shadow-lg mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-[#F05A28]">Violation Trend</h2>
+                <select id="granularitySelect" class="p-2 bg-[#FEE9E2] text-[#4A5568] rounded-md focus:outline-none focus:ring-2 focus:ring-[#F05A28]">
+                    <option value="Days" selected>Days</option>
+                    <option value="Hours">Hours</option>
+                    <option value="Minutes">Minutes</option>
+                </select>
+            </div>
+            <canvas id="violationTrendChart" class="max-h-[400px]"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+    function updateTrendChart(granularity) {
+        const allTrendData = {{.TrendJSON | safeJS}};
+        let violationChart = Chart.getChart('violationTrendChart');
+
+        if (violationChart) {
+            try {
+                violationChart.destroy();
+                console.log('Previous chart destroyed');
+            } catch (e) {
+                console.error('Error destroying chart:', e);
+            }
+        }
+
+        try {
+            violationChart = new Chart(document.getElementById('violationTrendChart'), {
+                type: 'line',
+                data: {
+                    labels: allTrendData[granularity].map(d => d.Date),
+                    datasets: [{
+                        label: 'Total Violations',
+                        data: allTrendData[granularity].map(d => d.Count),
+                        borderColor: '#10B981', /* Green line */
+                        backgroundColor: 'rgba(16, 185, 129, 0.2)', /* Light green fill */
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#10B981',
+                        pointBorderColor: '#FFFFFF',
+                        pointHoverBackgroundColor: '#FFFFFF',
+                        pointHoverBorderColor: '#10B981'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: { display: true, text: granularity === 'Days' ? 'Date' : 'Time', color: '#4A5568' },
+                            ticks: { color: '#4A5568', maxTicksLimit: 10 }
+                        },
+                        y: {
+                            title: { display: true, text: 'Violations', color: '#4A5568' },
+                            ticks: { color: '#4A5568',  stepSize: 1, precision: 0 },
+                            min: 0,
+                            suggestedMin: 0
+                        }
+                    },
+                    plugins: { legend: { labels: { color: '#4A5568' } } }
+                }
+            });
+            console.log('New chart created for granularity:', granularity);
+        } catch (e) {
+            console.error('Error creating chart:', e);
+        }
+    }
+
+    function initializeViolationChart() {
+        updateTrendChart('Days');
+        document.getElementById('granularitySelect').addEventListener('change', (e) => {
+            updateTrendChart(e.target.value);
+        });
+    }
+
+    initializeViolationChart();
+</script>
+</body>
+</html>

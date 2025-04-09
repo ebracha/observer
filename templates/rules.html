@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rules</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .rules-container {
+            max-width: calc(100% - 8rem); /* 6rem sidebar expanded + 2rem space */
+            margin-left: 2rem; /* Space between sidebar and content */
+        }
+        .table-row-hover:hover {
+            background: linear-gradient(to right, #ECFDF5, #F5F6F5); /* Green to gray gradient */
+            color: #10B981; /* Emerald green */
+        }
+    </style>
+</head>
+<body class="bg-[#F5F6F5] text-[#4A5568] font-sans antialiased">
+<div class="rules-container mx-auto pt-6 pb-6">
+    <div class="bg-[#FFFFFF] rounded-lg p-6 shadow-lg relative">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-xl font-semibold text-[#F05A28]">Rules</h1>
+            <button id="add-rule-btn" class="p-2 bg-[#F05A28] text-white rounded-md hover:bg-[#D94A1F] transition-colors" title="Add Rule">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 5v14m7-7H5"></path></svg>
+            </button>
+        </div>
+        <div id="rules-table" class="overflow-x-auto">
+            <table class="w-full text-sm text-left text-[#4A5568]">
+                <thead class="bg-[#F5F6F5] text-[#4A5568]">
+                <tr>
+                    <th class="px-4 py-2 rounded-tl-md">DAG ID</th>
+                    <th class="px-4 py-2">Field</th>
+                    <th class="px-4 py-2">Condition</th>
+                    <th class="px-4 py-2">Value</th>
+                    <th class="px-4 py-2">Severity</th>
+                    <th class="px-4 py-2">Last Violated</th>
+                    <th class="px-4 py-2 rounded-tr-md">Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                {{range $i, $rule := .Rules}}
+                <tr class="border-b border-[#E6E6E6] table-row-hover transition-colors" data-id="{{$i}}">
+                    <td class="px-4 py-2">{{if .DagID}}{{.DagID}}{{else}}N/A{{end}}</td>
+                    <td class="px-4 py-2">{{.FieldName}}</td>
+                    <td class="px-4 py-2">{{.Condition}}</td>
+                    <td class="px-4 py-2">{{.Value}}</td>
+                    <td class="px-4 py-2">{{.Severity}}</td>
+                    <td class="px-4 py-2">{{if .LastViolated}}{{.LastViolated.Format "2006-01-02 15:04"}}{{else}}Never{{end}}</td>
+                    <td class="px-4 py-2 flex space-x-2">
+                        <button onclick="openEditPanel({{$i}})" class="p-1 bg-[#FBBF24] text-white rounded-md hover:bg-[#D97706] transition-colors" title="Edit Rule">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        </button>
+                        <button hx-delete="/rules/{{$i}}" hx-target="#rules-table" hx-swap="outerHTML" hx-indicator=".spinner" class="p-1 bg-[#EF4444] text-white rounded-md hover:bg-[#DC2626] transition-colors" title="Delete Rule">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4M9 7h6"></path></svg>
+                        </button>
+                    </td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="7" class="px-4 py-2 text-center text-[#6B7280]">No rules defined</td>
+                </tr>
+                {{end}}
+                </tbody>
+            </table>
+        </div>
+        <div id="rule-panel" style="z-index: 21;" class="fixed inset-y-0 right-0 w-80 bg-[#FFFFFF] p-6 shadow-lg transform translate-x-full transition-transform duration-300 ease-in-out">
+            <div class="flex justify-between items-center mb-6">
+                <h2 id="panel-title" class="text-lg font-semibold text-[#F05A28]">Add Rule</h2>
+                <button id="close-panel-btn" class="text-[#6B7280] hover:text-[#4A5568]">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <form id="rule-form" hx-post="/rules" hx-target="#rules-table" hx-swap="outerHTML" hx-indicator=".spinner" class="space-y-4">
+                <input type="hidden" name="index" id="rule-index">
+                <div>
+                    <label for="dag_id" class="block text-sm text-[#4A5568] mb-1">DAG ID (optional)</label>
+                    <input name="dag_id" id="dag_id" placeholder="e.g., example_dag" class="w-full p-2 bg-[#F9FAFB] text-[#4A5568] rounded-md focus:outline-none focus:ring-2 focus:ring-[#10B981]">
+                </div>
+                <div>
+                    <label for="field_name" class="block text-sm text-[#4A5568] mb-1">Field Name</label>
+                    <select name="field_name" id="field_name" class="w-full p-2 bg-[#F9FAFB] text-[#4A5568] rounded-md focus:outline-none focus:ring-2 focus:ring-[#10B981]" required>
+                        {{range .MetricFields}}
+                        <option value="{{.}}">{{.}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div>
+                    <label for="condition" class="block text-sm text-[#4A5568] mb-1">Condition</label>
+                    <select name="condition" id="condition" class="w-full p-2 bg-[#F9FAFB] text-[#4A5568] rounded-md focus:outline-none focus:ring-2 focus:ring-[#10B981]" required>
+                        <option value=">">Greater Than</option>
+                        <option value="<">Less Than</option>
+                        <option value="=">Equal To</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="value" class="block text-sm text-[#4A5568] mb-1">Value</label>
+                    <input name="value" id="value" placeholder="e.g., 5" class="w-full p-2 bg-[#F9FAFB] text-[#4A5568] rounded-md focus:outline-none focus:ring-2 focus:ring-[#10B981]" required>
+                </div>
+                <div>
+                    <label for="severity" class="block text-sm text-[#4A5568] mb-1">Severity</label>
+                    <select name="severity" id="severity" class="w-full p-2 bg-[#F9FAFB] text-[#4A5568] rounded-md focus:outline-none focus:ring-2 focus:ring-[#10B981]" required>
+                        {{range .SeverityOptions}}
+                        <option value="{{.}}">{{.}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <button type="submit" class="w-full p-2 bg-[#F05A28] text-white rounded-md hover:bg-[#D94A1F] transition-colors">Save Rule</button>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+    document.getElementById('add-rule-btn').addEventListener('click', () => {
+        const f = document.getElementById('rule-form');
+        const p = document.getElementById('rule-panel');
+
+        f.setAttribute('hx-post', '/rules');
+        p.classList.remove('translate-x-full');
+
+    });
+
+    document.getElementById('close-panel-btn').addEventListener('click', () => {
+        console.log("clicked");
+        const f = document.getElementById('rule-form');
+        const p = document.getElementById('rule-panel');
+
+        p.classList.add('translate-x-full');
+        f.reset();
+        f.removeAttribute('hx-put');
+        f.setAttribute('hx-post', '/rules');
+
+        document.getElementById('rule-index').value = '';
+    });
+
+    if (!window.rulesPanelInitialized) {
+        const f = document.getElementById('rule-form');
+        f.addEventListener('submit', function(e) {
+            if (!window.htmx) {
+                console.error('HTMX not loaded');
+                e.preventDefault();
+            }
+        });
+        window.rulesPanelInitialized = true;
+    }
+</script>
+</body>
+</html>

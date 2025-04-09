@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Observer</title>
+    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom overrides for Chart.js */
+        canvas { max-width: 100%; height: auto !important; }
+        .sidebar {
+            position: fixed;
+            top: 4rem;
+            bottom: 0;
+            width: 4rem; /* Collapsed width (w-16) */
+            background: #FFFFFF;
+            border-right: 1px solid #E6E6E6;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            transition: width 0.3s ease;
+            z-index: 10;
+            overflow: hidden;
+        }
+        .sidebar:hover {
+            width: 6rem; /* Expanded width (w-64) */
+        }
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4rem;
+            background: #FFFFFF;
+            border-bottom: 1px solid #E6E6E6;
+            display: flex;
+            align-items: center;
+            padding: 0 1.5rem;
+            z-index: 20;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        .nav-item {
+            transition: all 0.2s ease;
+            display: inline-flex;
+            flex-direction: row; /* Explicitly horizontal */
+            align-items: center;
+            gap: 0.5rem;
+            color: #4A5568;
+            white-space: nowrap;
+            padding: 0.75rem 1rem; /* Adjusted padding */
+        }
+        .nav-item:hover {
+            background: linear-gradient(to right, #FEE9E2, #FFF7F5);
+            color: #F05A28;
+        }
+        .nav-item.active {
+            background: linear-gradient(to right, #F05A28, #D94A1F);
+            color: #FFFFFF;
+            box-shadow: 0 2px 8px rgba(240, 90, 40, 0.2);
+        }
+        .nav-icon {
+            width: 1.25rem;
+            height: 1.25rem;
+            color: #4A5568;
+            transition: all 0.2s ease;
+            flex-shrink: 0; /* Prevent icon from shrinking */
+        }
+        .nav-item:hover .nav-icon, .nav-item.active .nav-icon {
+            color: inherit;
+            transform: scale(1.1);
+        }
+        .nav-text {
+            opacity: 0;
+            transition: opacity 0.1s ease;
+        }
+        .sidebar:hover .nav-text {
+            opacity: 1;
+        }
+        .logo {
+            width: 3rem;
+            height: 2rem;
+            margin-right: 0.75rem;
+        }
+        .navbar-title {
+            font-size: 1rem;
+            font-weight: 500;
+            color: #F05A28;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body class="bg-[#F5F6F5] text-[#4A5568] font-sans antialiased">
+<!-- Navbar -->
+<div class="navbar">
+    <img src="https://www.bmc.com/content/dam/bmc/graphics/bmc-logo.svg" alt="BMC Logo" class="logo">
+    <span class="navbar-title">Observer</span>
+</div>
+
+<!-- Spinner -->
+<div class="spinner fixed top-6 right-4 w-4 h-4 border-2 border-[#F05A28] border-t-transparent rounded-full animate-spin hidden htmx-indicator"></div>
+
+<!-- Sidebar -->
+<div class="sidebar">
+    <nav class="flex-1 pt-4">
+        <ul class="space-y-2"> <!-- Reduced space-y for tighter list -->
+            <li style="text-align: -webkit-center;">
+                <a hx-get="/dashboard" hx-target="#content" hx-swap="innerHTML" hx-indicator=".spinner"
+                   hx-on:click="document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); this.classList.add('active')"
+                   class="nav-item block rounded-lg text-xs cursor-pointer active">
+                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12h18M3 6h18M3 18h18" />
+                    </svg>
+                    <span class="nav-text">Overview</span>
+                </a>
+            </li>
+            <li style="text-align: -webkit-center;">
+                <a hx-get="/monitoring" hx-target="#content" hx-swap="innerHTML" hx-indicator=".spinner"
+                   hx-on:click="document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); this.classList.add('active')"
+                   class="nav-item block rounded-lg text-xs cursor-pointer">
+                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                    <span class="nav-text">Monitoring</span>
+                </a>
+            </li>
+            <li style="text-align: -webkit-center;">
+                <a hx-get="/metrics" hx-target="#content" hx-swap="innerHTML" hx-indicator=".spinner"
+                   hx-on:click="document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); this.classList.add('active')"
+                   class="nav-item block rounded-lg text-xs cursor-pointer">
+                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <span class="nav-text">Metrics</span>
+                </a>
+            </li>
+            <li style="text-align: -webkit-center;">
+                <a hx-get="/violations" hx-target="#content" hx-swap="innerHTML" hx-indicator=".spinner"
+                   hx-on:click="document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); this.classList.add('active')"
+                   class="nav-item block rounded-lg text-xs cursor-pointer">
+                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 4a8 8 0 100 16 8 8 0 000-16z" />
+                    </svg>
+                    <span class="nav-text">Violations</span>
+                </a>
+            </li>
+            <li style="text-align: -webkit-center;">
+                <a hx-get="/rules" hx-target="#content" hx-swap="innerHTML" hx-indicator=".spinner"
+                   hx-on:click="document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); this.classList.add('active')"
+                   class="nav-item block rounded-lg text-xs cursor-pointer">
+                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    <span class="nav-text">Rules</span>
+                </a>
+            </li>
+            <li style="text-align: -webkit-center;">
+                <a hx-get="/clients" hx-target="#content" hx-swap="innerHTML" hx-indicator=".spinner"
+                   hx-on:click="document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); this.classList.add('active')"
+                   class="nav-item block rounded-lg text-xs cursor-pointer">
+                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <span class="nav-text">Clients</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</div>
+<main style="max-width: 125rem; margin: auto;" class="pt-20 pl-24 pr-8 pb-6 min-h-screen bg-[#F5F6F5]">
+    <div id="content">
+        <div hx-get="/dashboard" hx-trigger="load" hx-swap="innerHTML" hx-indicator=".spinner"></div>
+    </div>
+</main>
+</body>
+</html>

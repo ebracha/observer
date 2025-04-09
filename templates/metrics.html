@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metrics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .metrics-container {
+            max-width: calc(100% - 8rem);
+            margin-left: 2rem;
+        }
+        .table-row-hover:hover {
+            background: linear-gradient(to right, #ECFDF5, #F5F6F5);
+            color: #10B981;
+        }
+    </style>
+</head>
+<body class="bg-[#F5F6F5] text-[#4A5568] font-sans antialiased">
+<div class="metrics-container mx-auto pt-6 pb-6">
+    <div class="bg-[#FFFFFF] rounded-lg p-6 shadow-lg">
+        <h1 class="text-xl font-semibold text-[#F05A28] mb-6">Metrics</h1>
+
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-[#FFFFFF] p-4 rounded-md shadow-lg">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-sm text-[#4A5568]">Duration Trend</h3>
+                    <select id="timeframe" class="p-1 bg-[#F9FAFB] text-[#4A5568] rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-[#10B981]">
+                        <option value="days">Days</option>
+                        <option value="hours">Hours</option>
+                        <option value="minutes">Minutes</option>
+                    </select>
+                </div>
+                <canvas id="weeklyTrendChart" class="max-h-[200px]"></canvas>
+            </div>
+            <div class="bg-[#FFFFFF] p-4 rounded-md shadow-lg">
+                <h3 class="text-sm text-[#4A5568] text-center mb-2">Metric Freshness (%)</h3>
+                <canvas id="freshnessGauge" class="max-h-[200px]"></canvas>
+            </div>
+            <div class="bg-[#FFFFFF] p-4 rounded-md shadow-lg">
+                <h3 class="text-sm text-[#4A5568] text-center mb-2">Pipeline Readiness (%)</h3>
+                <canvas id="readinessBar" class="max-h-[200px]"></canvas>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left text-[#4A5568]">
+                <thead class="bg-[#F5F6F5] text-[#4A5568]">
+                <tr>
+                    <th class="px-4 py-2 rounded-tl-md">DAG ID</th>
+                    <th class="px-4 py-2">Task ID</th>
+                    <th class="px-4 py-2">Event Type</th>
+                    <th class="px-4 py-2">Execution Time</th>
+                    <th class="px-4 py-2 rounded-tr-md">Duration</th>
+                </tr>
+                </thead>
+                <tbody>
+                {{range .Metrics}}
+                <tr class="border-b border-[#E6E6E6] table-row-hover transition-colors">
+                    <td class="px-4 py-2">{{.DagID}}</td>
+                    <td class="px-4 py-2">{{if .TaskID}}{{.TaskID}}{{else}}N/A{{end}}</td>
+                    <td class="px-4 py-2">{{.EventType}}</td>
+                    <td class="px-4 py-2">{{.ExecutionTime}}</td>
+                    <td class="px-4 py-2">{{.Duration}}</td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="5" class="px-4 py-2 text-center text-[#6B7280]">No metrics available</td>
+                </tr>
+                {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<script>
+    // Destroy existing charts if they exist
+    function destroyCharts() {
+        ['weeklyTrendChart', 'freshnessGauge', 'readinessBar'].forEach(id => {
+            const chart = Chart.getChart(id);
+            if (chart) chart.destroy();
+        });
+    }
+
+    // Initialize charts
+    function initCharts() {
+        destroyCharts();
+        console.log("Initializing charts...");
+        const metricsData = {{.Metrics | js}} || [];
+        console.log("Metrics Data:", metricsData);
+
+        if (metricsData.length === 0) {
+            console.log("No metrics available, charts not initialized");
+            return;
+        }
+
+        // Freshness Gauge (Doughnut)
+        const now = new Date();
+        const latestMetric = metricsData.reduce((latest, m) => {
+            const mTime = new Date(m.execution_time);
+            return mTime > latest ? mTime : latest;
+        }, new Date(0));
+        const freshness = Math.min(100, Math.max(0, 100 - (now - latestMetric) / (1000 * 60)));
+        console.log("Freshness calculated:", freshness, "Time since last metric (min):", (now - latestMetric) / (1000 * 60));
+
+        new Chart(document.getElementById('freshnessGauge'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Freshness', 'Stale'],
+                datasets: [{
+                    data: [freshness, 100 - freshness],
+                    backgroundColor: ['#10B981', '#E5E7EB']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                circumference: 180,
+                rotation: -90,
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // Readiness Bar
+        const avgReadiness = metricsData.reduce((sum, m) => sum + m.readiness, 0) / metricsData.length || 0;
+        const readyCount = metricsData.filter(m => parseFloat(m.duration) < 10).length;
+        const total = metricsData.length || 1;
+
+        new Chart(document.getElementById('readinessBar'), {
+            type: 'bar',
+            data: {
+                labels: ['Ready', 'At Risk'],
+                datasets: [
+                    { data: [avgReadiness, 100 - avgReadiness],
+                        backgroundColor: ['#10B981', '#EF4444'] }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, max: 100 } },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // Duration Trend Chart (Line) with selectable timeframe
+        let trendChart;
+        const timeframeSelect = document.getElementById('timeframe');
+
+        function updateTrendChart(timeframe) {
+            if (trendChart) trendChart.destroy();
+
+            const trendData = {};
+            metricsData.forEach(m => {
+                const date = new Date(m.execution_time);
+                let key;
+                if (timeframe === 'days') {
+                    key = date.toISOString().split('T')[0]; // YYYY-MM-DD
+                } else if (timeframe === 'hours') {
+                    key = date.getHours();
+                } else if (timeframe === 'minutes') {
+                    key = date.getMinutes();
+                }
+                trendData[key] = trendData[key] || { count: 0, totalDuration: 0 };
+                trendData[key].count += 1;
+                trendData[key].totalDuration += parseFloat(m.duration) || 0;
+            });
+
+            const labels = Object.keys(trendData).sort();
+            const durations = labels.map(key => trendData[key].totalDuration / trendData[key].count);
+
+            trendChart = new Chart(document.getElementById('weeklyTrendChart'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Avg Duration (s)',
+                        data: durations,
+                        borderColor: '#F05A28',
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+            console.log("Trend chart updated for timeframe:", timeframe);
+        }
+
+        // Initial chart render
+        updateTrendChart(timeframeSelect.value);
+
+        // Update chart on timeframe change
+        timeframeSelect.addEventListener('change', () => updateTrendChart(timeframeSelect.value));
+    }
+
+    // Run initialization on load
+    initCharts();
+
+    // Re-run initialization on HTMX swaps (if applicable)
+    document.body.addEventListener('htmx:afterSwap', initCharts);
+</script>
+</body>
+</html>
