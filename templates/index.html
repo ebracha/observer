@@ -6,165 +6,245 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        :root {
+            --primary: #6366F1;
+            --primary-dark: #4F46E5;
+            --secondary: #EC4899;
+            --background: #0F172A;
+            --surface: #1E293B;
+            --surface-light: #334155;
+            --text: #F1F5F9;
+            --text-secondary: #94A3B8;
+            --success: #10B981;
+            --error: #EF4444;
+            --warning: #F59E0B;
+            --info: #3B82F6;
+            --border: #334155;
+            --card-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        
         /* Custom overrides for Chart.js */
         canvas { max-width: 100%; height: auto !important; }
+        
+        body {
+            background-color: var(--background);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            transition: all 0.3s ease;
+        }
+        
         .sidebar {
             position: fixed;
             top: 4rem;
             bottom: 0;
-            width: 4rem; /* Collapsed width (w-16) */
-            background: #FFFFFF;
-            border-right: 1px solid #E6E6E6;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-            transition: width 0.3s ease;
+            width: 14rem;
+            background: linear-gradient(180deg, var(--surface) 0%, var(--surface-light) 100%);
+            border-right: 1px solid var(--border);
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.15);
             z-index: 10;
-            overflow: hidden;
+            backdrop-filter: blur(10px);
         }
-        .sidebar:hover {
-            width: 6rem; /* Expanded width (w-64) */
-        }
+        
         .navbar {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
             height: 4rem;
-            background: #FFFFFF;
-            border-bottom: 1px solid #E6E6E6;
+            background: linear-gradient(90deg, var(--surface) 0%, var(--surface-light) 100%);
+            border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
             padding: 0 1.5rem;
             z-index: 20;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+            backdrop-filter: blur(10px);
         }
+        
         .nav-item {
-            transition: all 0.2s ease;
-            display: inline-flex;
-            flex-direction: row; /* Explicitly horizontal */
+            display: flex;
             align-items: center;
-            gap: 0.5rem;
-            color: #4A5568;
-            white-space: nowrap;
-            padding: 0.75rem 1rem; /* Adjusted padding */
+            justify-content: flex-start;
+            color: var(--text-secondary);
+            width: 100%;
+            height: 3rem;
+            border-radius: 0.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: background-color 0.2s ease, color 0.2s ease;
+            margin: 0.375rem 0;
+            padding: 0 1.25rem;
+            font-weight: 500;
+            letter-spacing: 0.01em;
+            font-size: 0.95rem;
+            line-height: 3;
         }
-        .nav-item:hover {
-            background: linear-gradient(to right, #FEE9E2, #FFF7F5);
-            color: #F05A28;
-        }
-        .nav-item.active {
-            background: linear-gradient(to right, #F05A28, #D94A1F);
-            color: #FFFFFF;
-            box-shadow: 0 2px 8px rgba(240, 90, 40, 0.2);
-        }
-        .nav-icon {
-            width: 1.25rem;
-            height: 1.25rem;
-            color: #4A5568;
-            transition: all 0.2s ease;
-            flex-shrink: 0; /* Prevent icon from shrinking */
-        }
-        .nav-item:hover .nav-icon, .nav-item.active .nav-icon {
-            color: inherit;
-            transform: scale(1.1);
-        }
-        .nav-text {
+        
+        .nav-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 0.25rem;
+            background: var(--primary);
             opacity: 0;
-            transition: opacity 0.1s ease;
+            transition: opacity 0.2s ease;
         }
-        .sidebar:hover .nav-text {
+        
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text);
+        }
+        
+        .nav-item.active {
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--primary);
+        }
+        
+        .nav-item.active::before {
             opacity: 1;
         }
-        .logo {
-            width: 3rem;
-            height: 2rem;
-            margin-right: 0.75rem;
-        }
+        
         .navbar-title {
-            font-size: 1rem;
-            font-weight: 500;
-            color: #F05A28;
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--text);
+            background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(99, 102, 241, 0.5);
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+        }
+        
+        .navbar-title::before {
+            content: '';
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border-radius: 50%;
+            margin-right: 0.75rem;
+            box-shadow: 0 0 15px var(--primary);
+        }
+        
+        .card {
+            background: var(--surface);
+            border-radius: 0.75rem;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        
+        .card:hover {
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            transform: translateY(-2px);
+        }
+        
+        .spinner {
+            position: fixed;
+            top: 1.5rem;
+            right: 1.5rem;
+            width: 1.5rem;
+            height: 1.5rem;
+            border: 2px solid transparent;
+            border-top-color: var(--primary);
+            border-right-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            z-index: 50;
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
+        }
+        
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        #content {
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar-nav {
+            padding: 1rem 0.75rem;
+            margin: 0;
+            list-style: none;
+        }
+        
+        .sidebar-title {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
             text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 0 1.25rem;
+            margin: 1.5rem 0 0.5rem;
         }
     </style>
 </head>
-<body class="bg-[#F5F6F5] text-[#4A5568] font-sans antialiased">
+<body class="bg-[var(--background)] text-[var(--text)] font-sans antialiased">
 <!-- Navbar -->
 <div class="navbar">
-    <img src="https://www.bmc.com/content/dam/bmc/graphics/bmc-logo.svg" alt="BMC Logo" class="logo">
     <span class="navbar-title">Observer</span>
 </div>
 
 <!-- Spinner -->
-<div class="spinner fixed top-6 right-4 w-4 h-4 border-2 border-[#F05A28] border-t-transparent rounded-full animate-spin hidden htmx-indicator"></div>
+<div class="spinner hidden htmx-indicator"></div>
 
 <!-- Sidebar -->
 <div class="sidebar">
-    <nav class="flex-1 pt-4">
-        <ul class="space-y-2"> <!-- Reduced space-y for tighter list -->
-            <li style="text-align: -webkit-center;">
+    <nav class="pt-4">
+        <div class="sidebar-title">Navigation</div>
+        <ul class="sidebar-nav">
+            <li>
                 <a hx-get="/dashboard" hx-target="#content" hx-swap="innerHTML" hx-indicator=".spinner"
                    hx-on:click="document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); this.classList.add('active')"
-                   class="nav-item block rounded-lg text-xs cursor-pointer active">
-                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12h18M3 6h18M3 18h18" />
-                    </svg>
-                    <span class="nav-text">Overview</span>
+                   class="nav-item block rounded-lg cursor-pointer active">
+                    Overview
                 </a>
             </li>
-            <li style="text-align: -webkit-center;">
+            <li>
                 <a hx-get="/monitoring" hx-target="#content" hx-swap="innerHTML" hx-indicator=".spinner"
                    hx-on:click="document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); this.classList.add('active')"
-                   class="nav-item block rounded-lg text-xs cursor-pointer">
-                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                    </svg>
-                    <span class="nav-text">Monitoring</span>
+                   class="nav-item block rounded-lg cursor-pointer">
+                    Monitoring
                 </a>
             </li>
-            <li style="text-align: -webkit-center;">
+            <li>
                 <a hx-get="/metrics" hx-target="#content" hx-swap="innerHTML" hx-indicator=".spinner"
                    hx-on:click="document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); this.classList.add('active')"
-                   class="nav-item block rounded-lg text-xs cursor-pointer">
-                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    <span class="nav-text">Metrics</span>
+                   class="nav-item block rounded-lg cursor-pointer">
+                    Metrics
                 </a>
             </li>
-            <li style="text-align: -webkit-center;">
+            <li>
                 <a hx-get="/violations" hx-target="#content" hx-swap="innerHTML" hx-indicator=".spinner"
                    hx-on:click="document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); this.classList.add('active')"
-                   class="nav-item block rounded-lg text-xs cursor-pointer">
-                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 4a8 8 0 100 16 8 8 0 000-16z" />
-                    </svg>
-                    <span class="nav-text">Violations</span>
+                   class="nav-item block rounded-lg cursor-pointer">
+                    Violations
                 </a>
             </li>
-            <li style="text-align: -webkit-center;">
+            <li>
                 <a hx-get="/rules" hx-target="#content" hx-swap="innerHTML" hx-indicator=".spinner"
                    hx-on:click="document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); this.classList.add('active')"
-                   class="nav-item block rounded-lg text-xs cursor-pointer">
-                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                    <span class="nav-text">Rules</span>
+                   class="nav-item block rounded-lg cursor-pointer">
+                    Rules
                 </a>
             </li>
-            <li style="text-align: -webkit-center;">
+            <li>
                 <a hx-get="/clients" hx-target="#content" hx-swap="innerHTML" hx-indicator=".spinner"
                    hx-on:click="document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); this.classList.add('active')"
-                   class="nav-item block rounded-lg text-xs cursor-pointer">
-                    <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                    <span class="nav-text">Clients</span>
+                   class="nav-item block rounded-lg cursor-pointer">
+                    Clients
                 </a>
             </li>
         </ul>
     </nav>
 </div>
-<main style="max-width: 125rem; margin: auto;" class="pt-20 pl-24 pr-8 pb-6 min-h-screen bg-[#F5F6F5]">
+<main style="max-width: 125rem; margin: auto;" class="pt-20 pl-60 pr-8 pb-6 min-h-screen">
     <div id="content">
         <div hx-get="/dashboard" hx-trigger="load" hx-swap="innerHTML" hx-indicator=".spinner"></div>
     </div>
