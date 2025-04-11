@@ -123,8 +123,8 @@ func (s *InfluxLineageStore) ReadAll() ([]models.LineageEvent, error) {
 		return nil, fmt.Errorf("InfluxDB client is not initialized")
 	}
 
-	org := getEnv("INFLUXDB_ORG", "your-org")
-	bucket := getEnv("INFLUXDB_BUCKET", "your-bucket")
+	org := getEnv("INFLUXDB_ORG", "observer")
+	bucket := getEnv("INFLUXDB_BUCKET", "observer")
 
 	queryAPI := client.QueryAPI(org)
 	query := fmt.Sprintf(`from(bucket:"%s") |> range(start: -1h)`, bucket)
@@ -135,9 +135,19 @@ func (s *InfluxLineageStore) ReadAll() ([]models.LineageEvent, error) {
 	var events []models.LineageEvent
 	for result.Next() {
 		record := result.Record()
+
+		// Safely get values with nil checks
+		eventType, _ := record.ValueByKey("event_type").(string)
+		jobName, _ := record.ValueByKey("job_name").(string)
+		jobNamespace, _ := record.ValueByKey("job_namespace").(string)
+		producer, _ := record.ValueByKey("producer").(string)
+		runId, _ := record.ValueByKey("run_id").(string)
+		eventTime, _ := record.ValueByKey("event_time").(string)
+		schemaURL, _ := record.ValueByKey("schema_url").(string)
+
 		event := models.LineageEvent{
-			EventTime: record.Time().String(),
-			EventType: record.ValueByKey("event_type").(string),
+			EventTime: eventTime,
+			EventType: eventType,
 			Job: struct {
 				Facets struct {
 					JobType struct {
@@ -151,11 +161,11 @@ func (s *InfluxLineageStore) ReadAll() ([]models.LineageEvent, error) {
 				Name      string `json:"name"`
 				Namespace string `json:"namespace"`
 			}{
-				Name:      record.ValueByKey("job_name").(string),
-				Namespace: record.ValueByKey("job_namespace").(string),
+				Name:      jobName,
+				Namespace: jobNamespace,
 			},
-			Producer:  record.ValueByKey("producer").(string),
-			SchemaURL: record.ValueByKey("schema_url").(string),
+			Producer:  producer,
+			SchemaURL: schemaURL,
 			Run: struct {
 				Facets struct {
 					AirflowState struct {
@@ -172,7 +182,7 @@ func (s *InfluxLineageStore) ReadAll() ([]models.LineageEvent, error) {
 				} `json:"facets"`
 				RunId string `json:"runId"`
 			}{
-				RunId: record.ValueByKey("run_id").(string),
+				RunId: runId,
 			},
 		}
 		events = append(events, event)
