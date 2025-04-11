@@ -37,7 +37,7 @@ func ReceiveLineage(w http.ResponseWriter, r *http.Request) {
 
 	services.ProcessLineageEvents()
 
-	log.Printf("Received lineage event: %s for job %s/%s", event.EventType, event.Job.Namespace, event.Job.Name)
+	log.Printf("Received lineage event: %s job: %s/%s", event.EventType, event.Job.Namespace, event.Job.Name)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
