@@ -10,9 +10,10 @@ import (
 )
 
 func ProcessLineageEvents() error {
-	storage.Lineage.Lock()
-	events := storage.Lineage.Events
-	storage.Lineage.Unlock()
+	events, err := storage.GetLineageStore().ReadAll()
+	if err != nil {
+		return fmt.Errorf("failed to read lineage events: %v", err)
+	}
 
 	starts := make(map[string]models.LineageEvent)
 

@@ -275,16 +275,25 @@ func MonitoringHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	totalMetrics := len(storage.Lineage.Events)
+	events, err := storage.GetLineageStore().ReadAll()
+	if err != nil {
+		log.Printf("Error reading lineage events: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	totalMetrics := len(events)
 
 	var lastMetricTime string
-	if len(storage.Lineage.Events) > 0 {
-		latest := storage.Lineage.Events[len(storage.Lineage.Events)-1].EventTime
-		if t, err := time.Parse(time.RFC3339, latest); err == nil {
-			lastMetricTime = t.Format("2006-01-02 15:04")
-		} else {
-			lastMetricTime = "N/A"
+	if len(events) > 0 {
+		latest, err := storage.GetLineageStore().GetLatestMetricTime()
+		if err != nil {
+			log.Printf("Error getting latest metric time: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
 		}
+
+		lastMetricTime = latest.Format("2006-01-02 15:04")
 	} else {
 		lastMetricTime = "N/A"
 	}
