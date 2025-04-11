@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   airflow-observer:
     build:
@@ -6,7 +8,12 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - TZ=UTC
+      - INFLUXDB_HOST=http://influxdb:8086
+      - INFLUXDB_TOKEN=iD3d8R50p4Z_a2TrKEbSs6hXWdXfbXABIranmDsu6maQDFzSqjz8D5LMSE787rFRsKqErdgH5SE4YiN1JyPIoA==
+      - INFLUXDB_ORG=observer
+      - INFLUXDB_BUCKET=observer
+    depends_on:
+      - influxdb
     restart: unless-stopped
     networks:
       - airflow-network
@@ -18,13 +25,16 @@ services:
       start_period: 10s
 
   influxdb:
-    image: influxdb:latest
+    image: influxdb:2.7
     ports:
       - "8086:8086"
     environment:
-      - INFLUXDB_DB=metrics
-      - INFLUXDB_ADMIN_USER=admin
-      - INFLUXDB_ADMIN_PASSWORD=adminpassword
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=admin123
+      - DOCKER_INFLUXDB_INIT_ORG=observer
+      - DOCKER_INFLUXDB_INIT_BUCKET=observer
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=test-token
     volumes:
       - influxdb-storage:/var/lib/influxdb
     networks:
