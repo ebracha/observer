@@ -10,7 +10,11 @@ import (
 )
 
 func ProcessLineageEvents() error {
-	events, err := storage.GetLineageStore().ReadAll()
+	// Create an empty filter to get all events from the last day
+	filter := storage.LineageFilter{
+		StartTime: time.Now().Add(-24 * time.Hour),
+	}
+	events, err := storage.GetLineageStore().ReadAll(filter)
 	if err != nil {
 		return fmt.Errorf("failed to read lineage events: %v", err)
 	}

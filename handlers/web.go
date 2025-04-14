@@ -275,7 +275,11 @@ func MonitoringHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	events, err := storage.GetLineageStore().ReadAll()
+	// Create an empty filter to get all events
+	filter := storage.LineageFilter{
+		Limit: 1000, // Set a reasonable limit
+	}
+	events, err := storage.GetLineageStore().ReadAll(filter)
 	if err != nil {
 		log.Printf("Error reading lineage events: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)

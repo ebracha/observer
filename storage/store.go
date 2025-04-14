@@ -83,10 +83,22 @@ type RulesStore struct {
 	Data []models.SLARule
 }
 
+type LineageFilter struct {
+	EventType    string    `json:"event_type"`
+	JobName      string    `json:"job_name"`
+	JobNamespace string    `json:"job_namespace"`
+	Producer     string    `json:"producer"`
+	RunID        string    `json:"run_id"`
+	StartTime    time.Time `json:"start_time"`
+	EndTime      time.Time `json:"end_time"`
+	Limit        int       `json:"limit"`
+}
+
 type LineageStoreInterface interface {
 	Create(event models.LineageEvent) error
-	ReadAll() ([]models.LineageEvent, error)
+	ReadAll(filter LineageFilter) ([]models.LineageEvent, error)
 	GetLatestMetricTime() (time.Time, error)
+	IsInitialized() bool
 }
 
 type InfluxLineageStore struct{}
@@ -118,7 +130,7 @@ func (s *InfluxLineageStore) Create(event models.LineageEvent) error {
 	return nil
 }
 
-func (s *InfluxLineageStore) ReadAll() ([]models.LineageEvent, error) {
+func (s *InfluxLineageStore) ReadAll(filter LineageFilter) ([]models.LineageEvent, error) {
 	if !s.IsInitialized() {
 		return nil, fmt.Errorf("InfluxDB client is not initialized")
 	}
@@ -126,12 +138,52 @@ func (s *InfluxLineageStore) ReadAll() ([]models.LineageEvent, error) {
 	org := getEnv("INFLUXDB_ORG", "observer")
 	bucket := getEnv("INFLUXDB_BUCKET", "observer")
 
-	queryAPI := client.QueryAPI(org)
-	query := fmt.Sprintf(`from(bucket:"%s") |> range(start: -1h)`, bucket)
-	result, err := queryAPI.Query(context.Background(), query)
-	if err != nil {
-		return nil, err
+	// Start building the query
+	queryBuilder := fmt.Sprintf(`from(bucket:"%s")`, bucket)
+
+	// Add time range
+	if !filter.StartTime.IsZero() {
+		if filter.EndTime.IsZero() {
+			filter.EndTime = time.Now()
+		}
+		queryBuilder += fmt.Sprintf(` |> range(start: %s, stop: %s)`,
+			filter.StartTime.Format(time.RFC3339),
+			filter.EndTime.Format(time.RFC3339))
+	} else {
+		queryBuilder += ` |> range(start: -30d)`
 	}
+
+	// Add measurement filter
+	queryBuilder += ` |> filter(fn: (r) => r["_measurement"] == "lineage_events")`
+
+	// Add tag filters
+	if filter.EventType != "" {
+		queryBuilder += fmt.Sprintf(` |> filter(fn: (r) => r["event_type"] == "%s")`, filter.EventType)
+	}
+	if filter.JobName != "" {
+		queryBuilder += fmt.Sprintf(` |> filter(fn: (r) => r["job_name"] == "%s")`, filter.JobName)
+	}
+	if filter.JobNamespace != "" {
+		queryBuilder += fmt.Sprintf(` |> filter(fn: (r) => r["job_namespace"] == "%s")`, filter.JobNamespace)
+	}
+	if filter.Producer != "" {
+		queryBuilder += fmt.Sprintf(` |> filter(fn: (r) => r["producer"] == "%s")`, filter.Producer)
+	}
+	if filter.RunID != "" {
+		queryBuilder += fmt.Sprintf(` |> filter(fn: (r) => r["run_id"] == "%s")`, filter.RunID)
+	}
+
+	// Add limit if specified
+	if filter.Limit > 0 {
+		queryBuilder += fmt.Sprintf(` |> limit(n: %d)`, filter.Limit)
+	}
+
+	queryAPI := client.QueryAPI(org)
+	result, err := queryAPI.Query(context.Background(), queryBuilder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute query: %w", err)
+	}
+
 	var events []models.LineageEvent
 	for result.Next() {
 		record := result.Record()
@@ -195,19 +247,19 @@ func (s *InfluxLineageStore) GetLatestMetricTime() (time.Time, error) {
 		return time.Time{}, fmt.Errorf("InfluxDB client is not initialized")
 	}
 
-	org := getEnv("INFLUXDB_ORG", "your-org")
-	bucket := getEnv("INFLUXDB_BUCKET", "your-bucket")
+	org := getEnv("INFLUXDB_ORG", "observer")
+	bucket := getEnv("INFLUXDB_BUCKET", "observer")
 
 	queryAPI := client.QueryAPI(org)
 	query := fmt.Sprintf(`from(bucket:"%s")
 		|> range(start: -30d)
 		|> filter(fn: (r) => r["_measurement"] == "lineage_events")
-		|> last()
-		|> keep(columns: ["_time"])`, bucket)
+		|> sort(columns: ["_time"], desc: true)
+		|> limit(n: 1)`, bucket)
 
 	result, err := queryAPI.Query(context.Background(), query)
 	if err != nil {
-		return time.Time{}, err
+		return time.Time{}, fmt.Errorf("failed to query latest metric time: %w", err)
 	}
 
 	if !result.Next() {
