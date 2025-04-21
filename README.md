@@ -86,28 +86,8 @@ docker-compose up
 
 ### Monitoring Dashboard
 
-Access the dashboard at `http://localhost:8000/dashboard` to view:
+Access the dashboard at `http://localhost:8000/` to view:
 - Overall pipeline health
 - Compliance rates
 - Violation statistics
 - Top performing DAGs
-
-<!-- Place the dashboard overview screenshot in docs/images/dashboard_overview.png -->
-
-### Metrics View
-
-View detailed metrics at `http://localhost:8000/metrics` including:
-- Task execution times
-- Success/failure rates
-- Duration statistics
-- Readiness scores
-
-<!-- Place the metrics dashboard screenshot in docs/images/metrics_dashboard.png -->
-
-### SLA Management
-
-Configure and manage SLAs at `http://localhost:8000/rules`:
-- Create custom rules
-- Set severity levels
-- Monitor violations
-- Track compliance

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/ebracha/airflow-observer/models"
-	"github.com/ebracha/airflow-observer/storage"
 )
 
 func CheckViolations(metrics []models.Metric, rules []models.SLARule) []models.Violation {
@@ -49,9 +48,11 @@ func CheckViolations(metrics []models.Metric, rules []models.SLARule) []models.V
 					continue
 				}
 				slaMissed := false
+				var value float64
 				if rule.FieldName == "duration" {
 					val, _ := strconv.ParseFloat(metricValue, 64)
 					ruleVal, _ := strconv.ParseFloat(rule.Value, 64)
+					value = val
 					switch rule.Condition {
 					case ">":
 						slaMissed = val > ruleVal
@@ -61,6 +62,8 @@ func CheckViolations(metrics []models.Metric, rules []models.SLARule) []models.V
 						slaMissed = val == ruleVal
 					}
 				} else {
+					// For non-numeric fields, we'll use 1.0 as the value
+					value = 1.0
 					switch rule.Condition {
 					case ">":
 						slaMissed = metricValue > rule.Value
@@ -72,24 +75,19 @@ func CheckViolations(metrics []models.Metric, rules []models.SLARule) []models.V
 				}
 				if slaMissed {
 					execTime, _ := time.Parse(time.RFC3339, metric.ExecutionTime)
+					threshold, _ := strconv.ParseFloat(rule.Value, 64)
 					violations = append(violations, models.Violation{
-						DagID:     metric.DagID,
-						TaskID:    taskID,
-						FieldName: rule.FieldName,
-						Value:     metricValue,
-						Condition: rule.Condition,
-						RuleValue: rule.Value,
-						SLAMissed: true,
-						Timestamp: execTime,
+						ID:          fmt.Sprintf("%s:%s:%s", metric.DagID, taskID, execTime.Format(time.RFC3339)),
+						RuleID:      fmt.Sprintf("%d", rule.ID),
+						DagID:       metric.DagID,
+						TaskID:      taskID,
+						Timestamp:   execTime,
+						Value:       value,
+						Threshold:   threshold,
+						SLAMissed:   true,
+						Severity:    rule.Severity,
+						Description: fmt.Sprintf("%s %s %s", rule.FieldName, rule.Condition, rule.Value),
 					})
-					for i, r := range storage.Rules.Data {
-						if r.ID == rule.ID {
-							storage.Rules.Lock()
-							storage.Rules.Data[i].LastViolated = &execTime
-							storage.Rules.Unlock()
-							break
-						}
-					}
 				}
 			}
 		case "count>":
@@ -130,24 +128,19 @@ func CheckViolations(metrics []models.Metric, rules []models.SLARule) []models.V
 			}
 			// Only trigger violation if count exceeds threshold
 			if count > rule.CountThresh {
+				threshold, _ := strconv.ParseFloat(rule.Value, 64)
 				violations = append(violations, models.Violation{
-					DagID:     rule.DagID,
-					TaskID:    "",
-					FieldName: rule.FieldName,
-					Value:     fmt.Sprintf("%d occurrences", count),
-					Condition: fmt.Sprintf("count> %d in %d mins", rule.CountThresh, rule.WindowMins),
-					RuleValue: rule.Value,
-					SLAMissed: true,
-					Timestamp: now,
+					ID:          fmt.Sprintf("%s:%s:%s", rule.DagID, "", now.Format(time.RFC3339)),
+					RuleID:      fmt.Sprintf("%d", rule.ID),
+					DagID:       rule.DagID,
+					TaskID:      "",
+					Timestamp:   now,
+					Value:       float64(count),
+					Threshold:   threshold,
+					SLAMissed:   true,
+					Severity:    rule.Severity,
+					Description: fmt.Sprintf("count> %d in %d mins", rule.CountThresh, rule.WindowMins),
 				})
-				for i, r := range storage.Rules.Data {
-					if r.ID == rule.ID {
-						storage.Rules.Lock()
-						storage.Rules.Data[i].LastViolated = &now
-						storage.Rules.Unlock()
-						break
-					}
-				}
 			}
 		}
 	}

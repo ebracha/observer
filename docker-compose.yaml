@@ -8,12 +8,17 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - INFLUXDB_HOST=http://influxdb:8086
-      - INFLUXDB_TOKEN=iD3d8R50p4Z_a2TrKEbSs6hXWdXfbXABIranmDsu6maQDFzSqjz8D5LMSE787rFRsKqErdgH5SE4YiN1JyPIoA==
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=test-token
       - INFLUXDB_ORG=observer
       - INFLUXDB_BUCKET=observer
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=observer123
+      - REDIS_DB=0
     depends_on:
       - influxdb
+      - redis
     restart: unless-stopped
     networks:
       - airflow-network
@@ -40,6 +45,21 @@ services:
     networks:
       - airflow-network
 
+  redis:
+    image: redis:7.2
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass observer123
+    volumes:
+      - redis-storage:/data
+    networks:
+      - airflow-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
 networks:
   airflow-network:
     name: airflow_default
@@ -47,4 +67,6 @@ networks:
 
 volumes:
   influxdb-storage:
+    driver: local
+  redis-storage:
     driver: local 

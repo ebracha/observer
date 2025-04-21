@@ -13,16 +13,14 @@ import (
 )
 
 func main() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/lineage/events", handlers.ReceiveLineage)
-	mux.HandleFunc("/", handlers.IndexHandler)
-	mux.HandleFunc("/dashboard", handlers.DashboardHandler)
-	mux.HandleFunc("/monitoring", handlers.MonitoringHandler)
-	mux.HandleFunc("/metrics", handlers.MetricsTableHandler)
-	mux.HandleFunc("/violations", handlers.ViolationsHandler)
-	mux.HandleFunc("/rules/", handlers.RulesHandler)
-	mux.HandleFunc("/rules", handlers.RulesHandler)
-	mux.HandleFunc("/clients", handlers.ClientsHandler)
+	router, err := handlers.NewRouter()
+	if err != nil {
+		log.Fatalf("Failed to initialize router: %v", err)
+	}
+	defer router.Close()
+
+	// Setup routes
+	mux := router.SetupRoutes()
 
 	server := &http.Server{
 		Addr:         ":8000",
