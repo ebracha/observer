@@ -13,12 +13,14 @@ import (
 )
 
 type MetricHandler struct {
-	timeSeriesStorage storage.TimeSeriesStorage
+	timeSeriesStorage  storage.TimeSeriesStorage
+	violationCheckChan chan models.Metric // Channel to send metrics for violation checks
 }
 
-func NewMetricHandler(timeSeriesStorage storage.TimeSeriesStorage) *MetricHandler {
+func NewMetricHandler(timeSeriesStorage storage.TimeSeriesStorage, violationCheckChan chan models.Metric) *MetricHandler {
 	return &MetricHandler{
-		timeSeriesStorage: timeSeriesStorage,
+		timeSeriesStorage:  timeSeriesStorage,
+		violationCheckChan: violationCheckChan, // Store the channel
 	}
 }
 
@@ -79,20 +81,53 @@ func (h *MetricHandler) MetricListen(w http.ResponseWriter, r *http.Request) {
 			"namespace":       metric.Namespace,
 		},
 		Fields: map[string]interface{}{
-			"execution_time": metric.ExecutionTime,
-			"start_time":     metric.StartTime,
-			"duration":       metric.Duration,
-			"schema_url":     metric.SchemaURL,
-			"state":          metric.State,
-			"tasks_state":    metric.TasksState,
+			"execution_time":  metric.ExecutionTime,
+			"schema_url":      metric.SchemaURL,
+			"state":           metric.State,
+			"tasks_state":     metric.TasksState,
+			"producer":        metric.Producer,
+			"run_id":          metric.RunID,
+			"namespace":       metric.Namespace,
+			"job_type":        metric.JobType,
+			"processing_type": metric.ProcessingType,
+			"integration":     metric.Integration,
 		},
 		Time: time.Now(),
 	}
 
+	// Add optional tags
+	if metric.TaskID != nil {
+		point.Tags["task_id"] = *metric.TaskID
+	}
+
+	// Add optional fields
+	if metric.StartTime != nil {
+		// Ensure StartTime is converted to a format InfluxDB understands if necessary,
+		// or store as Unix timestamp. Here, assuming string is fine based on prior code.
+		point.Fields["start_time"] = *metric.StartTime
+	}
+	if metric.Duration != nil {
+		point.Fields["duration"] = *metric.Duration
+	}
+
 	if err := h.timeSeriesStorage.WritePoint(ctx, point); err != nil {
-		log.Printf("Failed to create metric: %v", err)
+		log.Printf("Failed to write metric point: %v", err) // Changed log message slightly
 		http.Error(w, "Failed to create metric", http.StatusInternalServerError)
 		return
+	}
+
+	// Log success after writing
+	log.Printf("Successfully wrote metric point for DAG %s (RunID: %s, Event: %s)", metric.DagID, metric.RunID, metric.EventType)
+
+	// Send metric over the channel for violation checking
+	// Use a non-blocking send in case the receiver is slow or not ready,
+	// or ensure the channel has sufficient buffer.
+	select {
+	case h.violationCheckChan <- metric:
+		log.Printf("Sent metric for DAG %s (RunID: %s) to violation check channel.", metric.DagID, metric.RunID)
+	default:
+		// Optional: Log if the channel is full/blocked
+		log.Printf("Warning: Violation check channel is full or blocked. Metric for DAG %s (RunID: %s) was not sent.", metric.DagID, metric.RunID)
 	}
 
 	log.Printf("Received lineage event: %s job: %s/%s", event.EventType, event.Job.Namespace, event.Job.Name)

@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
 	"strconv"
 
+	"github.com/ebracha/airflow-observer/services"
 	"github.com/ebracha/airflow-observer/storage"
 	"github.com/ebracha/airflow-observer/store"
 )
@@ -58,7 +60,10 @@ func NewRouter() (*Router, error) {
 		return nil, err
 	}
 
-	mh := NewMetricHandler(timeSeriesStorage)
+	violationService := services.NewViolationService(store.Rules(), store.Violations())
+	go violationService.Start(context.Background())
+
+	mh := NewMetricHandler(timeSeriesStorage, violationService.MetricChan())
 	wh := NewWebHandler(store)
 
 	return &Router{

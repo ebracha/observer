@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/ebracha/airflow-observer/models"
-	"github.com/ebracha/airflow-observer/services"
 	"github.com/ebracha/airflow-observer/store"
 )
 
@@ -55,7 +54,7 @@ type DashboardData struct {
 	HealthyDAGs    int
 	WarningDAGs    int
 	CriticalDAGs   int
-	Violations     []models.Violation
+	Violations     []*models.Violation
 	TopDagsJSON    string
 	TrendJSON      string
 }
@@ -97,30 +96,6 @@ func (h *WebHandler) handleError(w http.ResponseWriter, err error, message strin
 	http.Error(w, "Internal server error", http.StatusInternalServerError)
 }
 
-func (h *WebHandler) convertRulesToSLARules(rules []*store.Rule) []models.SLARule {
-	var slaRules []models.SLARule
-	for _, rule := range rules {
-		slaRule := models.SLARule{
-			ID:           len(slaRules) + 1,
-			DagID:        rule.Tags["dag_id"],
-			FieldName:    rule.Tags["field_name"],
-			Condition:    rule.Tags["condition"],
-			Value:        fmt.Sprintf("%.2f", rule.Threshold),
-			Severity:     rule.Tags["severity"],
-			CreatedAt:    rule.CreatedAt,
-			LastViolated: nil,
-		}
-		if windowMins, err := strconv.Atoi(rule.Tags["window_mins"]); err == nil {
-			slaRule.WindowMins = windowMins
-		}
-		if countThresh, err := strconv.Atoi(rule.Tags["count_thresh"]); err == nil {
-			slaRule.CountThresh = countThresh
-		}
-		slaRules = append(slaRules, slaRule)
-	}
-	return slaRules
-}
-
 // Handler functions
 func (h *WebHandler) IndexHandler(w http.ResponseWriter, r *http.Request) {
 	// Define template functions
@@ -154,66 +129,64 @@ func (h *WebHandler) IndexHandler(w http.ResponseWriter, r *http.Request) {
 
 func (h *WebHandler) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	// Get metrics from the last 24 hours
-	filter := store.MetricFilter{
-		StartTime: time.Now().Add(-24 * time.Hour),
-		EndTime:   time.Now(),
-	}
+	// Define time window for metrics AND violations
+	startTime := time.Now().Add(-24 * time.Hour)
+	endTime := time.Now()
 
-	metrics, err := h.store.Metrics().List(ctx, filter)
+	// Get metrics from the last 24 hours
+	metricFilter := store.MetricFilter{
+		StartTime: startTime,
+		EndTime:   endTime,
+	}
+	metrics, err := h.store.Metrics().List(ctx, metricFilter)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error getting metrics: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// Get rules
-	rules, err := h.store.Rules().ListRules(ctx)
+	// Get rules (still needed for context, but not for direct violation checking here)
+	// rules, err := h.store.Rules().ListRules(ctx)
+	// if err != nil {
+	// 	http.Error(w, fmt.Sprintf("Error getting rules: %v", err), http.StatusInternalServerError)
+	// 	return
+	// }
+	// slaRules := h.convertRulesToSLARules(rules) // Conversion might still be useful for display?
+
+	// --- Fetch VIOLATIONS from the ViolationStore ---
+	violationFilter := store.ViolationFilter{ // Assuming a ViolationFilter exists
+		StartTime: startTime,
+		EndTime:   endTime,
+	}
+	violations, err := h.store.Violations().GetViolations(ctx, violationFilter)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error getting rules: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Error getting violations: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// Convert rules to SLARules
-	slaRules := make([]models.SLARule, len(rules))
-	for i, rule := range rules {
-		slaRules[i] = models.SLARule{
-			ID:           i + 1,
-			DagID:        rule.Tags["dag_id"],
-			FieldName:    rule.Tags["field_name"],
-			Condition:    rule.Tags["condition"],
-			Value:        fmt.Sprintf("%.2f", rule.Threshold),
-			WindowMins:   getIntFromTags(rule.Tags, "window_mins"),
-			CountThresh:  getIntFromTags(rule.Tags, "count_thresh"),
-			CreatedAt:    rule.CreatedAt,
-			LastViolated: nil,
-			Severity:     rule.Tags["severity"],
-		}
-	}
-
-	// Check for violations
-	violations := services.CheckViolations(metrics, slaRules)
+	// Calculate severity count and DAG status based on fetched violations
 	severityCount := make(map[string]int)
 	dagStatus := make(map[string]string) // Maps DAG ID to its worst severity status ("Healthy", "Warning", "Critical")
 	for _, v := range violations {
 		severityCount[v.Severity]++
-		// Determine the worst status for each DAG based on violations
 		currentSeverity := dagStatus[v.DagID]
 		if currentSeverity == "" || currentSeverity == "Healthy" {
-			dagStatus[v.DagID] = v.Severity // Initial or upgrade from Healthy
+			dagStatus[v.DagID] = v.Severity
 		} else if currentSeverity == "Warning" && v.Severity == "Critical" {
-			dagStatus[v.DagID] = v.Severity // Upgrade from Warning to Critical
+			dagStatus[v.DagID] = v.Severity
 		}
 	}
 
-	// Get latest metric time
+	// Get latest metric time (still relevant)
 	latestTime, err := h.store.Metrics().GetLatestMetricTime(ctx)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error getting latest metric time: %v", err), http.StatusInternalServerError)
-		return
+		// Handle error, maybe log and continue with zero time?
+		log.Printf("Error getting latest metric time: %v", err)
+		latestTime = time.Time{} // Use zero time
+		// Or return error: http.Error(w, fmt.Sprintf("Error getting latest metric time: %v", err), http.StatusInternalServerError); return
 	}
 
-	// Gather alerts
-	alerts := make([]Alert, 0, len(violations)) // Pre-allocate slice
+	// Gather alerts from fetched violations
+	alerts := make([]Alert, 0, len(violations))
 	for _, v := range violations {
 		alerts = append(alerts, Alert{
 			DagID:     v.DagID,
@@ -221,14 +194,13 @@ func (h *WebHandler) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 			Severity:  v.Severity,
 		})
 	}
-	// Optional: Sort alerts if needed, e.g., by timestamp descending
 	sort.Slice(alerts, func(i, j int) bool {
 		return alerts[i].Timestamp.After(alerts[j].Timestamp)
 	})
 
-	// Calculate DAG statistics
+	// --- DAG Statistics Calculation (remains largely the same, uses metrics) ---
 	dagStats := make(map[string]*DagStats)
-	trendData := TrendData{ // Keep trend data calculation as is (counts events over time)
+	trendData := TrendData{
 		Days:    make([]TrendDataPoint, 0),
 		Hours:   make([]TrendDataPoint, 0),
 		Minutes: make([]TrendDataPoint, 0),
@@ -240,7 +212,7 @@ func (h *WebHandler) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 		if _, exists := dagStats[m.DagID]; !exists {
 			dagStats[m.DagID] = &DagStats{
 				ID:   m.DagID,
-				Name: m.DagID, // Consider fetching a friendlier name if available
+				Name: m.DagID,
 			}
 		}
 		stats := dagStats[m.DagID]
@@ -248,31 +220,27 @@ func (h *WebHandler) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 		// Process only DAG-level events for Success/Failure counts and Duration/LastRunTime
 		if m.TaskID == nil { // This is a DAG-level metric
 			if m.EventType == "dag_success" {
-				stats.SuccessCount++ // Count successes for this DAG
+				stats.SuccessCount++
 			} else if m.EventType == "dag_failed" {
-				stats.FailureCount++ // Count failures for this DAG
+				stats.FailureCount++
 			}
-
-			// Update average duration incrementally
+			// ... (rest of stats aggregation: AvgDuration, LastRunTime)
 			currentTotalRuns := stats.SuccessCount + stats.FailureCount
 			if m.Duration != nil && currentTotalRuns > 0 {
 				if currentTotalRuns == 1 {
-					stats.AvgDuration = *m.Duration // First run
+					stats.AvgDuration = *m.Duration
 				} else {
-					// Weighted average: (oldAvg * (n-1) + newDuration) / n
 					stats.AvgDuration = (stats.AvgDuration*float64(currentTotalRuns-1) + *m.Duration) / float64(currentTotalRuns)
 				}
 			}
-
-			// Update LastRunTime if this event is later
 			if m.ExecutionTime != "" {
 				if execTime, err := time.Parse(time.RFC3339, m.ExecutionTime); err == nil {
-					if execTime.After(stats.LastRunTime) { // Handles zero time case correctly
+					if execTime.After(stats.LastRunTime) {
 						stats.LastRunTime = execTime
 					}
-
-					// Add to days
+					// --- Trend Data Calculation ---
 					day := execTime.Format("2006-01-02")
+					// ... (append to trendData.Days, trendData.Hours, trendData.Minutes)
 					found := false
 					for i := range trendData.Days {
 						if trendData.Days[i].Date == day {
@@ -284,8 +252,6 @@ func (h *WebHandler) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 					if !found {
 						trendData.Days = append(trendData.Days, TrendDataPoint{Date: day, Count: 1})
 					}
-
-					// Add to hours
 					hour := execTime.Format("2006-01-02 15:00")
 					found = false
 					for i := range trendData.Hours {
@@ -298,8 +264,6 @@ func (h *WebHandler) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 					if !found {
 						trendData.Hours = append(trendData.Hours, TrendDataPoint{Date: hour, Count: 1})
 					}
-
-					// Add to minutes
 					minute := execTime.Format("2006-01-02 15:04")
 					found = false
 					for i := range trendData.Minutes {
@@ -312,24 +276,25 @@ func (h *WebHandler) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 					if !found {
 						trendData.Minutes = append(trendData.Minutes, TrendDataPoint{Date: minute, Count: 1})
 					}
+					// --- End Trend Data ---
 				}
 			}
 		}
 	}
 
 	// Count DAGs by status based on the final aggregated stats and violations
-	totalDAGs := len(dagStats)
+	totalDAGs := len(dagStats) // Total unique DAGs based on metrics seen
 	healthyDAGs := 0
 	warningDAGs := 0
 	criticalDAGs := 0
 
 	for dagID, stats := range dagStats {
-		status, exists := dagStatus[dagID]
-		if !exists || status == "" { // No violations for this DAG
+		status, exists := dagStatus[dagID] // Check status derived from stored violations
+		if !exists || status == "" {       // No violations for this DAG
 			stats.Status = "Healthy"
 			healthyDAGs++
 		} else {
-			stats.Status = status // Status determined by violation severity
+			stats.Status = status
 			if status == "Warning" {
 				warningDAGs++
 			} else if status == "Critical" {
@@ -337,8 +302,9 @@ func (h *WebHandler) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// --- End Refactored DAG Statistics Calculation ---
 
-	// Sort each time period's data
+	// Sort trend data
 	sort.Slice(trendData.Days, func(i, j int) bool {
 		return trendData.Days[i].Date < trendData.Days[j].Date
 	})
@@ -361,7 +327,7 @@ func (h *WebHandler) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 		complianceRate = float64(healthyDAGs) / float64(totalDAGs) * 100
 	}
 
-	// Convert dagStats to slice and sort by last run time
+	// Convert dagStats to slice and sort by last run time for Top DAGs
 	var topDags []DagStats
 	for _, stats := range dagStats {
 		topDags = append(topDags, *stats)
@@ -370,33 +336,32 @@ func (h *WebHandler) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 		return topDags[i].LastRunTime.After(topDags[j].LastRunTime)
 	})
 
-	// Take top 5 DAGs
 	if len(topDags) > 5 {
 		topDags = topDags[:5]
 	}
 
-	// Convert to JSON
 	topDagsJSON, err := json.Marshal(topDags)
 	if err != nil {
 		log.Printf("Error marshaling top DAGs: %v", err)
 		topDagsJSON = []byte("[]")
 	}
 
+	// Prepare data for the template
 	data := DashboardData{
-		SeverityCount:  severityCount,
-		Alerts:         alerts,
+		SeverityCount:  severityCount, // Calculated from stored violations
+		Alerts:         alerts,        // Derived from stored violations
 		LastUpdate:     latestTime,
-		ComplianceRate: complianceRate,
+		ComplianceRate: complianceRate, // Calculated using status derived from stored violations
 		TotalDAGs:      totalDAGs,
 		HealthyDAGs:    healthyDAGs,
 		WarningDAGs:    warningDAGs,
 		CriticalDAGs:   criticalDAGs,
-		Violations:     violations,
+		Violations:     violations, // Pass the fetched violations to the template
 		TopDagsJSON:    string(topDagsJSON),
 		TrendJSON:      string(trendJSON),
 	}
 
-	// Define template functions
+	// Render the template
 	funcMap := template.FuncMap{
 		"unmarshal": func(s string) interface{} {
 			var result interface{}
@@ -407,8 +372,6 @@ func (h *WebHandler) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 			return template.JS(s)
 		},
 	}
-
-	// Create and parse the template
 	tmpl := template.New("dashboard.html").Funcs(funcMap)
 	tmpl, err = tmpl.ParseFiles("templates/dashboard.html")
 	if err != nil {
@@ -416,8 +379,6 @@ func (h *WebHandler) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-
-	// Execute the template
 	if err := tmpl.Execute(w, data); err != nil {
 		log.Printf("Template execution error in dashboardHandler: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -425,21 +386,14 @@ func (h *WebHandler) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Helper function to get integer from tags
-func getIntFromTags(tags map[string]string, key string) int {
-	if val, ok := tags[key]; ok {
-		if i, err := strconv.Atoi(val); err == nil {
-			return i
-		}
-	}
-	return 0
-}
-
 func (h *WebHandler) MonitoringHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
+	startTime := time.Now().Add(-24 * time.Hour) // Example: 24-hour window
+	endTime := time.Now()
 
 	// Get metrics
-	metrics, err := h.store.Metrics().List(ctx, store.MetricFilter{})
+	metricFilter := store.MetricFilter{StartTime: startTime, EndTime: endTime}
+	metrics, err := h.store.Metrics().List(ctx, metricFilter)
 	if err != nil {
 		h.handleError(w, err, "Error getting metrics")
 		return
@@ -448,28 +402,29 @@ func (h *WebHandler) MonitoringHandler(w http.ResponseWriter, r *http.Request) {
 	// Get latest metric time
 	latestTime, err := h.store.Metrics().GetLatestMetricTime(ctx)
 	if err != nil {
-		h.handleError(w, err, "Error getting latest metric time")
-		return
+		// Log error and continue, maybe use zero time
+		log.Printf("Error getting latest metric time: %v", err)
+		latestTime = time.Time{}
 	}
 
-	// Get rules
-	rules, err := h.store.Rules().ListRules(ctx)
+	// --- Fetch VIOLATIONS from the ViolationStore ---
+	violationFilter := store.ViolationFilter{ // Assuming a ViolationFilter exists
+		StartTime: startTime,
+		EndTime:   endTime,
+	}
+	violations, err := h.store.Violations().GetViolations(ctx, violationFilter)
 	if err != nil {
-		h.handleError(w, err, "Error getting rules")
+		h.handleError(w, err, "Error getting violations")
 		return
 	}
 
-	// Convert rules to SLARules
-	slaRules := h.convertRulesToSLARules(rules)
-	violations := services.CheckViolations(metrics, slaRules)
-
-	// Process violations
+	// Process violations for display
 	severityCount := make(map[string]int)
 	for _, v := range violations {
 		severityCount[v.Severity]++
 	}
 	if len(severityCount) == 0 {
-		severityCount["Minor"] = 0
+		severityCount["Minor"] = 0 // Ensure keys exist for template
 		severityCount["Critical"] = 0
 	}
 	severityJSON, err := json.Marshal(severityCount)
@@ -478,15 +433,15 @@ func (h *WebHandler) MonitoringHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Process alerts
-	type Alert struct {
+	// Process alerts from fetched violations
+	type Alert struct { // Local type definition for MonitoringHandler alerts
 		DagID     string
 		Timestamp string
 		Severity  string
 	}
 	var alerts []Alert
 	for i, v := range violations {
-		if i >= 5 {
+		if i >= 5 { // Limit alerts displayed
 			break
 		}
 		alerts = append(alerts, Alert{
@@ -495,11 +450,11 @@ func (h *WebHandler) MonitoringHandler(w http.ResponseWriter, r *http.Request) {
 			Severity:  v.Severity,
 		})
 	}
-	sort.Slice(alerts, func(i, j int) bool {
+	sort.Slice(alerts, func(i, j int) bool { // Sort alerts by timestamp desc
 		return alerts[i].Timestamp > alerts[j].Timestamp
 	})
 
-	// Calculate metrics for healthy/unhealthy DAGs
+	// Calculate metrics for healthy/unhealthy DAGs based on fetched violations
 	dagViolationCount := make(map[string]int)
 	for _, v := range violations {
 		dagViolationCount[v.DagID]++
@@ -507,8 +462,8 @@ func (h *WebHandler) MonitoringHandler(w http.ResponseWriter, r *http.Request) {
 	healthyCount := 0
 	unhealthyCount := 0
 	uniqueDags := make(map[string]bool)
-	for _, metric := range metrics {
-		if metric.TaskID == nil {
+	for _, metric := range metrics { // Still need metrics to know which DAGs ran
+		if metric.TaskID == nil { // Count unique DAGs based on DAG-level metrics
 			uniqueDags[metric.DagID] = true
 		}
 	}
@@ -532,13 +487,14 @@ func (h *WebHandler) MonitoringHandler(w http.ResponseWriter, r *http.Request) {
 	successCount := 0
 	failedCount := 0
 	for _, m := range metrics {
-		if strings.Contains(m.EventType, "success") {
-			successCount++
-		} else if strings.Contains(m.EventType, "failed") {
-			failedCount++
+		if m.TaskID == nil { // Consider only DAG-level events
+			if strings.Contains(m.EventType, "success") {
+				successCount++
+			} else if strings.Contains(m.EventType, "failed") {
+				failedCount++
+			}
 		}
 	}
-
 	pieData := struct {
 		Success int
 		Failed  int
@@ -549,15 +505,14 @@ func (h *WebHandler) MonitoringHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Process pagination
+	// Process pagination for violations
 	pageStr := r.URL.Query().Get("page")
 	page, err := strconv.Atoi(pageStr)
 	if err != nil || page < 1 {
 		page = 1
 	}
-
 	const itemsPerPage = 5
-	totalItems := len(violations)
+	totalItems := len(violations) // Total violations from store
 	totalPages := (totalItems + itemsPerPage - 1) / itemsPerPage
 	if totalPages == 0 {
 		totalPages = 1
@@ -565,44 +520,43 @@ func (h *WebHandler) MonitoringHandler(w http.ResponseWriter, r *http.Request) {
 	if page > totalPages {
 		page = totalPages
 	}
-
 	start := (page - 1) * itemsPerPage
 	end := start + itemsPerPage
 	if end > totalItems {
 		end = totalItems
 	}
 
-	// Convert violations to display format
-	type ViolatedRule struct {
-		DagID     string
-		TaskID    string
-		Value     string
-		Severity  string
-		Timestamp string
+	// Convert fetched violations to display format for pagination
+	type ViolatedRule struct { // Local type for display
+		DagID       string
+		TaskID      string
+		Value       string
+		Severity    string
+		Timestamp   string
+		Description string // Add description
 	}
 	var activeViolations []ViolatedRule
 	for _, v := range violations {
 		activeViolations = append(activeViolations, ViolatedRule{
-			DagID:     v.DagID,
-			TaskID:    v.TaskID,
-			Value:     fmt.Sprintf("%.2f", v.Value),
-			Severity:  v.Severity,
-			Timestamp: v.Timestamp.Format("2006-01-02 15:04"),
+			DagID:       v.DagID,
+			TaskID:      v.TaskID,
+			Value:       fmt.Sprintf("%.2f", v.Value),
+			Severity:    v.Severity,
+			Timestamp:   v.Timestamp.Format("2006-01-02 15:04"),
+			Description: v.Description, // Include description from violation
 		})
 	}
-	sort.Slice(activeViolations, func(i, j int) bool {
+	sort.Slice(activeViolations, func(i, j int) bool { // Sort all before pagination
 		return activeViolations[i].Timestamp > activeViolations[j].Timestamp
 	})
 	paginatedViolations := activeViolations[start:end]
 
-	// Define template functions
+	// Render template
 	tmpl := template.New("monitoring.html").Funcs(template.FuncMap{
 		"safeJS": func(b []byte) template.JS { return template.JS(b) },
 		"add":    func(a, b int) int { return a + b },
 		"sub":    func(a, b int) int { return a - b },
 	})
-
-	// Parse and execute template
 	tmpl, err = tmpl.ParseFiles("templates/monitoring.html")
 	if err != nil {
 		h.handleError(w, err, "Template parsing error in monitoring.html")
@@ -614,20 +568,20 @@ func (h *WebHandler) MonitoringHandler(w http.ResponseWriter, r *http.Request) {
 		Alerts              []Alert
 		HealthyCount        int
 		UnhealthyCount      int
-		TotalMetrics        int
+		TotalMetrics        int // This might be less relevant now or calculated differently
 		LastMetricTime      string
 		PieJSON             []byte
-		PaginatedViolations []ViolatedRule
+		PaginatedViolations []ViolatedRule // Use the paginated fetched violations
 		Page                int
 		TotalPages          int
 	}{
-		SeverityJSON:        severityJSON,
-		Alerts:              alerts,
-		HealthyCount:        healthyCount,
+		SeverityJSON:        severityJSON, // Calculated from stored violations
+		Alerts:              alerts,       // Derived from stored violations
+		HealthyCount:        healthyCount, // Calculated using status derived from stored violations
 		UnhealthyCount:      unhealthyCount,
-		TotalMetrics:        len(metrics),
+		TotalMetrics:        len(metrics), // Still based on fetched metrics
 		LastMetricTime:      latestTime.Format("2006-01-02 15:04:05"),
-		PieJSON:             pieJSON,
+		PieJSON:             pieJSON, // Calculated from metrics
 		PaginatedViolations: paginatedViolations,
 		Page:                page,
 		TotalPages:          totalPages,
@@ -771,37 +725,28 @@ func (h *WebHandler) MetricsTableHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *WebHandler) ViolationsHandler(w http.ResponseWriter, r *http.Request) {
-	metrics, err := h.store.Metrics().List(context.Background(), store.MetricFilter{})
+	ctx := context.Background()
+	// Define time window or other criteria for fetching violations
+	startTime := time.Now().Add(-7 * 24 * time.Hour) // Example: Last 7 days
+	endTime := time.Now()
+
+	// --- Fetch VIOLATIONS from the ViolationStore ---
+	violationFilter := store.ViolationFilter{ // Assuming a ViolationFilter exists
+		StartTime: startTime,
+		EndTime:   endTime,
+		// Add other filters if needed (e.g., Severity, DagID)
+	}
+	violations, err := h.store.Violations().GetViolations(ctx, violationFilter)
 	if err != nil {
-		log.Printf("Error getting metrics: %v", err)
+		log.Printf("Error getting violations: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	rules, err := h.store.Rules().ListRules(context.Background())
-	if err != nil {
-		log.Printf("Error getting rules: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	// Convert Rules to SLARules
-	var slaRules []models.SLARule
-	for _, rule := range rules {
-		slaRule := models.SLARule{
-			ID:           len(slaRules) + 1,
-			DagID:        rule.Tags["dag_id"],
-			FieldName:    rule.Tags["field_name"],
-			Condition:    rule.Tags["condition"],
-			Value:        fmt.Sprintf("%.2f", rule.Threshold),
-			Severity:     rule.Tags["severity"],
-			CreatedAt:    rule.CreatedAt,
-			LastViolated: nil,
-		}
-		slaRules = append(slaRules, slaRule)
-	}
-
-	violations := services.CheckViolations(metrics, slaRules)
+	// Sort violations, e.g., by timestamp descending
+	sort.Slice(violations, func(i, j int) bool {
+		return violations[i].Timestamp.After(violations[j].Timestamp)
+	})
 
 	// Define the template
 	tmpl := template.New("violations.html").Funcs(template.FuncMap{
@@ -816,9 +761,9 @@ func (h *WebHandler) ViolationsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Render the template with the data
+	// Render the template with the fetched violations
 	err = tmpl.Execute(w, struct {
-		Violations []models.Violation
+		Violations []*models.Violation
 	}{
 		Violations: violations,
 	})
@@ -919,37 +864,66 @@ func (h *WebHandler) RulesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case http.MethodPost:
-		err := r.ParseForm()
+		var err error       // Declare err once at the top of the block
+		err = r.ParseForm() // Use = for assignment
 		if err != nil {
 			log.Printf("Failed to parse form in POST: %v", err)
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
 
-		// Convert form values to Rule
-		threshold, err := strconv.ParseFloat(r.FormValue("value"), 64)
-		if err != nil {
-			log.Printf("Invalid threshold value: %v", err)
-			http.Error(w, "Invalid threshold value", http.StatusBadRequest)
-			return
+		// Determine if the field requires a numeric threshold
+		fieldName := r.FormValue("field_name")
+		requiresNumericThreshold := false
+		switch fieldName {
+		case "duration": // Add other numeric metric fields here
+			requiresNumericThreshold = true
+			// Add cases for other potential numeric fields if any
 		}
 
+		var threshold float64
+		// Removed var err error declaration from here
+		formValue := r.FormValue("value")
+
+		if requiresNumericThreshold {
+			// Try parsing only if the field is expected to be numeric
+			// Use = instead of := to assign to the existing err variable
+			threshold, err = strconv.ParseFloat(formValue, 64)
+			if err != nil {
+				log.Printf("Invalid numeric threshold value for field '%s': %v", fieldName, err)
+				http.Error(w, fmt.Sprintf("Invalid numeric value '%s' for field '%s'", formValue, fieldName), http.StatusBadRequest)
+				return
+			}
+		} // No parsing needed for non-numeric fields (like event_type)
+
+		// Create the rule
 		rule := &store.Rule{
-			ID:          fmt.Sprintf("rule:%s:%s", r.FormValue("dag_id"), r.FormValue("field_name")),
-			Name:        fmt.Sprintf("Rule for %s on %s", r.FormValue("dag_id"), r.FormValue("field_name")),
-			Description: fmt.Sprintf("Check if %s %s %s", r.FormValue("field_name"), r.FormValue("condition"), r.FormValue("value")),
+			ID:          fmt.Sprintf("rule:%s:%s", r.FormValue("dag_id"), fieldName),
+			Name:        fmt.Sprintf("Rule for %s on %s", r.FormValue("dag_id"), fieldName),
+			Description: fmt.Sprintf("Check if %s %s %s", fieldName, r.FormValue("condition"), formValue),
 			Type:        "metric",
-			Threshold:   threshold,
+			Threshold:   threshold, // Store the parsed float (will be 0 if not numeric)
 			Tags: map[string]string{
 				"dag_id":     r.FormValue("dag_id"),
-				"field_name": r.FormValue("field_name"),
+				"field_name": fieldName,
 				"condition":  r.FormValue("condition"),
 				"severity":   r.FormValue("severity"),
+				// Store the original string value, especially for non-numeric checks
+				"value_str": formValue,
 			},
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
 
+		// Add optional window/count tags if present
+		if windowMinsStr := r.FormValue("window_mins"); windowMinsStr != "" {
+			rule.Tags["window_mins"] = windowMinsStr
+		}
+		if countThreshStr := r.FormValue("count_thresh"); countThreshStr != "" {
+			rule.Tags["count_thresh"] = countThreshStr
+		}
+
+		// Use = instead of := to assign to the existing err variable
 		err = h.store.Rules().StoreRule(context.Background(), rule)
 		if err != nil {
 			log.Printf("Error storing rule: %v", err)
