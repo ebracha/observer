@@ -47,7 +47,7 @@
             <div class="bg-[rgba(59,130,246,0.1)] p-4 rounded-md text-center border border-[rgba(59,130,246,0.2)]">
                 <h3 class="text-sm text-[var(--text-secondary)]">Top DAG</h3>
                 <p class="text-lg font-bold text-[var(--info)] mt-2">
-                    {{with $top := .TopDagsJSON | unmarshal}}{{range $k, $v := $top}}{{$k}} ({{$v}}){{break}}{{end}}{{end}}
+                    {{printf "%s" .TopDag}}
                 </p>
                 <p class="text-xs text-[var(--text-secondary)]">Highest Violations</p>
             </div>

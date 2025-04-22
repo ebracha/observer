@@ -54,7 +54,7 @@ type DashboardData struct {
 	WarningDAGs    int
 	CriticalDAGs   int
 	Violations     []*models.Violation
-	TopDagsJSON    string
+	TopDag         string
 	TrendJSON      string
 }
 
@@ -109,17 +109,6 @@ func (h *WebHandler) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now().Add(-24 * time.Hour)
 	endTime := time.Now()
 
-	// Get metrics from the last 24 hours
-	metricFilter := store.MetricFilter{
-		StartTime: startTime,
-		EndTime:   endTime,
-	}
-	metrics, err := h.store.Metrics().List(ctx, metricFilter)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Error getting metrics: %v", err), http.StatusInternalServerError)
-		return
-	}
-
 	violationFilter := store.ViolationFilter{ // Assuming a ViolationFilter exists
 		StartTime: startTime,
 		EndTime:   endTime,
@@ -171,82 +160,6 @@ func (h *WebHandler) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 		Minutes: make([]TrendDataPoint, 0),
 	}
 
-	// Process metrics to aggregate stats per unique DAG and calculate trend
-	for _, m := range metrics {
-		// Initialize DagStats if seeing this DAG for the first time
-		if _, exists := dagStats[m.DagID]; !exists {
-			dagStats[m.DagID] = &DagStats{
-				ID:   m.DagID,
-				Name: m.DagID,
-			}
-		}
-		stats := dagStats[m.DagID]
-
-		// Process only DAG-level events for Success/Failure counts and Duration/LastRunTime
-		if m.TaskID == nil { // This is a DAG-level metric
-			if m.EventType == "dag_success" {
-				stats.SuccessCount++
-			} else if m.EventType == "dag_failed" {
-				stats.FailureCount++
-			}
-			// ... (rest of stats aggregation: AvgDuration, LastRunTime)
-			currentTotalRuns := stats.SuccessCount + stats.FailureCount
-			if m.Duration != nil && currentTotalRuns > 0 {
-				if currentTotalRuns == 1 {
-					stats.AvgDuration = *m.Duration
-				} else {
-					stats.AvgDuration = (stats.AvgDuration*float64(currentTotalRuns-1) + *m.Duration) / float64(currentTotalRuns)
-				}
-			}
-			if m.ExecutionTime != "" {
-				if execTime, err := time.Parse(time.RFC3339, m.ExecutionTime); err == nil {
-					if execTime.After(stats.LastRunTime) {
-						stats.LastRunTime = execTime
-					}
-					// --- Trend Data Calculation ---
-					day := execTime.Format("2006-01-02")
-					// ... (append to trendData.Days, trendData.Hours, trendData.Minutes)
-					found := false
-					for i := range trendData.Days {
-						if trendData.Days[i].Date == day {
-							trendData.Days[i].Count++
-							found = true
-							break
-						}
-					}
-					if !found {
-						trendData.Days = append(trendData.Days, TrendDataPoint{Date: day, Count: 1})
-					}
-					hour := execTime.Format("2006-01-02 15:00")
-					found = false
-					for i := range trendData.Hours {
-						if trendData.Hours[i].Date == hour {
-							trendData.Hours[i].Count++
-							found = true
-							break
-						}
-					}
-					if !found {
-						trendData.Hours = append(trendData.Hours, TrendDataPoint{Date: hour, Count: 1})
-					}
-					minute := execTime.Format("2006-01-02 15:04")
-					found = false
-					for i := range trendData.Minutes {
-						if trendData.Minutes[i].Date == minute {
-							trendData.Minutes[i].Count++
-							found = true
-							break
-						}
-					}
-					if !found {
-						trendData.Minutes = append(trendData.Minutes, TrendDataPoint{Date: minute, Count: 1})
-					}
-					// --- End Trend Data ---
-				}
-			}
-		}
-	}
-
 	// Count DAGs by status based on the final aggregated stats and violations
 	totalDAGs := len(dagStats) // Total unique DAGs based on metrics seen
 	healthyDAGs := 0
@@ -267,7 +180,6 @@ func (h *WebHandler) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	// --- End Refactored DAG Statistics Calculation ---
 
 	// Sort trend data
 	sort.Slice(trendData.Days, func(i, j int) bool {
@@ -286,30 +198,8 @@ func (h *WebHandler) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 		trendJSON = []byte("{}")
 	}
 
-	// Calculate compliance rate
-	complianceRate := 0.0
-	if totalDAGs > 0 {
-		complianceRate = float64(healthyDAGs) / float64(totalDAGs) * 100
-	}
-
-	// Convert dagStats to slice and sort by last run time for Top DAGs
-	var topDags []DagStats
-	for _, stats := range dagStats {
-		topDags = append(topDags, *stats)
-	}
-	sort.Slice(topDags, func(i, j int) bool {
-		return topDags[i].LastRunTime.After(topDags[j].LastRunTime)
-	})
-
-	if len(topDags) > 5 {
-		topDags = topDags[:5]
-	}
-
-	topDagsJSON, err := json.Marshal(topDags)
-	if err != nil {
-		log.Printf("Error marshaling top DAGs: %v", err)
-		topDagsJSON = []byte("[]")
-	}
+	complianceRate := 100.0
+	topDag := "N/A"
 
 	// Prepare data for the template
 	data := DashboardData{
@@ -322,17 +212,12 @@ func (h *WebHandler) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 		WarningDAGs:    warningDAGs,
 		CriticalDAGs:   criticalDAGs,
 		Violations:     violations, // Pass the fetched violations to the template
-		TopDagsJSON:    string(topDagsJSON),
+		TopDag:         topDag,
 		TrendJSON:      string(trendJSON),
 	}
 
 	// Render the template
 	funcMap := template.FuncMap{
-		"unmarshal": func(s string) interface{} {
-			var result interface{}
-			json.Unmarshal([]byte(s), &result)
-			return result
-		},
 		"safeJS": func(s string) template.JS {
 			return template.JS(s)
 		},
