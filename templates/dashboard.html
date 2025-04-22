@@ -24,8 +24,8 @@
         }
         
         .dashboard-container {
-            max-width: calc(100% - 8rem); /* 6rem sidebar expanded + 2rem space */
-            margin-left: 2rem; /* Space between sidebar and content */
+            max-width: calc(100% - 8rem);
+            margin-left: 2rem;
         }
     </style>
 </head>
@@ -75,7 +75,6 @@
         if (violationChart) {
             try {
                 violationChart.destroy();
-                console.log('Previous chart destroyed');
             } catch (e) {
                 console.error('Error destroying chart:', e);
             }
@@ -144,7 +143,6 @@
                     }
                 }
             });
-            console.log('New chart created for granularity:', granularity);
         } catch (e) {
             console.error('Error creating chart:', e);
         }

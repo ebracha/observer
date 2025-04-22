@@ -103,12 +103,11 @@
     // Initialize charts
     function initCharts() {
         destroyCharts();
-        console.log("Initializing charts...");
+
         const metricsData = {{.Metrics | js}} || [];
         console.log("Metrics Data:", metricsData);
 
         if (metricsData.length === 0) {
-            console.log("No metrics available, charts not initialized");
             return;
         }
 
@@ -311,7 +310,6 @@
                     }
                 }
             });
-            console.log("Trend chart updated for timeframe:", timeframe);
         }
 
         // Initial chart render

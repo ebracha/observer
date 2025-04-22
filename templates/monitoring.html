@@ -184,7 +184,6 @@
         });
 
         let dagRunData = {{.PieJSON | safeJS}};
-        console.log('DAG Run Data:', dagRunData);
         if (document.getElementById('dagRunPieChart').chart) {
             document.getElementById('dagRunPieChart').chart.destroy();
         }
