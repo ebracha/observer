@@ -9,7 +9,6 @@ import (
 	"github.com/ebracha/airflow-observer/storage"
 )
 
-// ViolationStore defines the interface for violation storage
 type ViolationStore interface {
 	StoreViolation(ctx context.Context, violation *models.Violation) error
 	GetViolations(ctx context.Context, filter ViolationFilter) ([]*models.Violation, error)
@@ -18,7 +17,6 @@ type ViolationStore interface {
 	Close() error
 }
 
-// ViolationFilter defines the parameters for filtering violations
 type ViolationFilter struct {
 	RuleID    string
 	DagID     string
@@ -29,25 +27,21 @@ type ViolationFilter struct {
 	Severity  string
 }
 
-// ViolationStorage implements ViolationStore using Redis
 type ViolationStorage struct {
 	redis storage.Storage
 }
 
-// NewViolationStore creates a new ViolationStore instance
 func NewViolationStore(redis storage.Storage) ViolationStore {
 	return &ViolationStorage{
 		redis: redis,
 	}
 }
 
-// StoreViolation stores a violation
 func (s *ViolationStorage) StoreViolation(ctx context.Context, violation *models.Violation) error {
 	key := fmt.Sprintf("violation:%s:%s:%s", violation.DagID, violation.TaskID, violation.Timestamp.Format(time.RFC3339))
 	return s.redis.Set(ctx, key, violation, 24*time.Hour) // Store violations for 24 hours
 }
 
-// GetViolations retrieves violations based on the filter criteria
 func (s *ViolationStorage) GetViolations(ctx context.Context, filter ViolationFilter) ([]*models.Violation, error) {
 	pattern := "violation:*"
 	if filter.DagID != "" {
@@ -66,7 +60,6 @@ func (s *ViolationStorage) GetViolations(ctx context.Context, filter ViolationFi
 			continue
 		}
 
-		// Apply filters
 		if filter.RuleID != "" && violation.RuleID != filter.RuleID {
 			continue
 		}
@@ -92,17 +85,14 @@ func (s *ViolationStorage) GetViolations(ctx context.Context, filter ViolationFi
 	return violations, nil
 }
 
-// GetViolationsByRule retrieves all violations for a specific rule
 func (s *ViolationStorage) GetViolationsByRule(ctx context.Context, ruleID string) ([]*models.Violation, error) {
 	return s.GetViolations(ctx, ViolationFilter{RuleID: ruleID})
 }
 
-// GetViolationsByDag retrieves all violations for a specific DAG
 func (s *ViolationStorage) GetViolationsByDag(ctx context.Context, dagID string) ([]*models.Violation, error) {
 	return s.GetViolations(ctx, ViolationFilter{DagID: dagID})
 }
 
-// Close closes the Redis connection
 func (s *ViolationStorage) Close() error {
 	return s.redis.Close()
 }

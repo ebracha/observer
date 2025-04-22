@@ -12,19 +12,15 @@ import (
 	"github.com/ebracha/airflow-observer/store"
 )
 
-// ViolationService handles the detection and potentially storage of violations.
 type ViolationService struct {
-	rulesStore     store.RuleStore      // Use concrete type or interface
-	violationStore store.ViolationStore // Use concrete type or interface
-	metricChan     chan models.Metric   // Channel to receive metrics for checking
-	// Add other fields if needed, e.g., context for shutdown
+	rulesStore     store.RuleStore
+	violationStore store.ViolationStore
+	metricChan     chan models.Metric
 }
 
-const violationChannelBufferSize = 100 // Define a buffer size
+const violationChannelBufferSize = 100
 
-// NewViolationService creates a new ViolationService.
 func NewViolationService(rules store.RuleStore, violations store.ViolationStore) *ViolationService {
-	// Create a buffered channel here
 	metricChan := make(chan models.Metric, violationChannelBufferSize)
 
 	return &ViolationService{
@@ -34,13 +30,10 @@ func NewViolationService(rules store.RuleStore, violations store.ViolationStore)
 	}
 }
 
-// MetricChan returns the channel for sending metrics to the service.
-// This allows the handler to get the channel created by the service.
 func (s *ViolationService) MetricChan() chan models.Metric {
 	return s.metricChan
 }
 
-// Start begins the background process of listening for metrics and checking violations.
 func (s *ViolationService) Start(ctx context.Context) {
 	log.Println("Violation service started, listening for metrics...")
 	for {
@@ -50,15 +43,12 @@ func (s *ViolationService) Start(ctx context.Context) {
 			return
 		case metric := <-s.metricChan:
 			log.Printf("Violation service received metric: DAG=%s, Event=%s", metric.DagID, metric.EventType)
-			// Fetch current rules every time a metric is received.
-			// Consider caching rules for performance if rule changes are infrequent.
 			rules, err := s.rulesStore.ListRules(ctx)
 			if err != nil {
 				log.Printf("Error fetching rules in Violation service: %v", err)
-				continue // Skip this metric if rules can't be fetched
+				continue
 			}
 
-			log.Printf("rules: %+v", rules)
 			violations := s.checkSingleMetric(metric, rules)
 			if len(violations) > 0 {
 				log.Printf("Detected %d violation(s) for metric: DAG=%s, Event=%s", len(violations), metric.DagID, metric.EventType)
@@ -76,8 +66,6 @@ func (s *ViolationService) Start(ctx context.Context) {
 	}
 }
 
-// checkSingleMetric checks a single metric against a list of rules.
-// This is adapted from the original CheckViolations function.
 func (s *ViolationService) checkSingleMetric(metric models.Metric, rules []*store.Rule) []models.Violation {
 	var violations []models.Violation
 	// now := time.Now() // Removed: Not used since count> is disabled

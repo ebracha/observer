@@ -11,7 +11,6 @@ import (
 	"github.com/influxdata/influxdb-client-go/v2/api/query"
 )
 
-// Config holds the InfluxDB configuration
 type Config struct {
 	Host   string
 	Token  string
@@ -19,7 +18,6 @@ type Config struct {
 	Bucket string
 }
 
-// Point represents a data point to be stored in InfluxDB
 type Point struct {
 	Measurement string
 	Tags        map[string]string
@@ -27,7 +25,6 @@ type Point struct {
 	Time        time.Time
 }
 
-// QueryFilter defines the parameters for querying data points
 type QueryFilter struct {
 	Measurement string
 	Tags        map[string]string
@@ -36,7 +33,6 @@ type QueryFilter struct {
 	Limit       int
 }
 
-// InfluxDB implements a generic storage interface using InfluxDB
 type InfluxDB struct {
 	client   influxdb2.Client
 	writeAPI api.WriteAPIBlocking
@@ -52,12 +48,10 @@ type TimeSeriesStorage interface {
 	Close()
 }
 
-// NewInfluxDB creates a new InfluxDB instance
 func NewInfluxDB(config *Config) (TimeSeriesStorage, error) {
 	var client influxdb2.Client
 	var err error
 
-	// Try to connect with retries
 	maxRetries := 5
 	retryDelay := time.Second * 2
 
@@ -95,21 +89,17 @@ func NewInfluxDB(config *Config) (TimeSeriesStorage, error) {
 	return nil, fmt.Errorf("failed to connect to InfluxDB after %d attempts: %w", maxRetries, err)
 }
 
-// WritePoint stores a data point in InfluxDB
 func (s *InfluxDB) WritePoint(ctx context.Context, point Point) error {
 	p := influxdb2.NewPointWithMeasurement(point.Measurement)
 
-	// Add tags
 	for k, v := range point.Tags {
 		p.AddTag(k, v)
 	}
 
-	// Add fields
 	for k, v := range point.Fields {
 		p.AddField(k, v)
 	}
 
-	// Set time if provided
 	if !point.Time.IsZero() {
 		p.SetTime(point.Time)
 	} else {
@@ -122,7 +112,6 @@ func (s *InfluxDB) WritePoint(ctx context.Context, point Point) error {
 	return nil
 }
 
-// QueryPoints retrieves data points based on the filter criteria
 func (s *InfluxDB) QueryPoints(ctx context.Context, filter QueryFilter) ([]Point, error) {
 	query := s.buildQuery(filter)
 	result, err := s.queryAPI.Query(ctx, query)
@@ -150,7 +139,6 @@ func (s *InfluxDB) QueryPoints(ctx context.Context, filter QueryFilter) ([]Point
 	return points, nil
 }
 
-// GetLatestTime returns the timestamp of the most recent point for a measurement
 func (s *InfluxDB) GetLatestTime(ctx context.Context, measurement string) (time.Time, error) {
 	query := fmt.Sprintf(`from(bucket:"%s")
 		|> range(start: -30d)
@@ -170,11 +158,9 @@ func (s *InfluxDB) GetLatestTime(ctx context.Context, measurement string) (time.
 	return result.Record().Time(), nil
 }
 
-// buildQuery constructs the Flux query based on the filter parameters
 func (s *InfluxDB) buildQuery(filter QueryFilter) string {
 	query := fmt.Sprintf(`from(bucket:"%s")`, s.bucket)
 
-	// Add time range
 	if !filter.StartTime.IsZero() {
 		if filter.EndTime.IsZero() {
 			filter.EndTime = time.Now()
@@ -186,17 +172,14 @@ func (s *InfluxDB) buildQuery(filter QueryFilter) string {
 		query += ` |> range(start: -30d)`
 	}
 
-	// Add measurement filter
 	if filter.Measurement != "" {
 		query += fmt.Sprintf(` |> filter(fn: (r) => r["_measurement"] == "%s")`, filter.Measurement)
 	}
 
-	// Add tag filters
 	for k, v := range filter.Tags {
 		query += fmt.Sprintf(` |> filter(fn: (r) => r["%s"] == "%s")`, k, v)
 	}
 
-	// Add limit if specified
 	if filter.Limit > 0 {
 		query += fmt.Sprintf(` |> limit(n: %d)`, filter.Limit)
 	}
@@ -204,18 +187,15 @@ func (s *InfluxDB) buildQuery(filter QueryFilter) string {
 	return query
 }
 
-// parseRecord converts an InfluxDB record to a Point
 func (s *InfluxDB) parseRecord(record *query.FluxRecord) (*Point, error) {
 	measurement := record.Measurement()
 	tags := make(map[string]string)
 	fields := make(map[string]interface{})
 
-	// Extract tags and fields
 	for k, v := range record.Values() {
 		if k == "_time" || k == "_measurement" {
 			continue
 		}
-		// Check if the value is a tag by looking at the record's structure
 		if _, ok := record.ValueByKey(k).(string); ok {
 			tags[k] = fmt.Sprintf("%v", v)
 		} else {
@@ -231,7 +211,6 @@ func (s *InfluxDB) parseRecord(record *query.FluxRecord) (*Point, error) {
 	}, nil
 }
 
-// Close closes the InfluxDB connection
 func (s *InfluxDB) Close() {
 	s.client.Close()
 }

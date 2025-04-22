@@ -10,7 +10,6 @@ import (
 	"github.com/ebracha/airflow-observer/storage"
 )
 
-// Config holds the InfluxDB configuration
 type Config struct {
 	Host   string
 	Token  string
@@ -18,7 +17,6 @@ type Config struct {
 	Bucket string
 }
 
-// MetricFilter defines the parameters for filtering metrics
 type MetricFilter struct {
 	EventType      string    `json:"event_type"`
 	DagID          string    `json:"dag_id"`
@@ -33,7 +31,6 @@ type MetricFilter struct {
 	Limit          int       `json:"limit"`
 }
 
-// EventStore defines the interface for metric storage
 type MetricStore interface {
 	Create(ctx context.Context, event models.Metric) error
 	List(ctx context.Context, filter MetricFilter) ([]models.Metric, error)
@@ -87,7 +84,6 @@ func (s *MetricStorage) Create(ctx context.Context, event models.Metric) error {
 	return s.storage.WritePoint(ctx, point)
 }
 
-// List retrieves metrics based on the provided filter
 func (s *MetricStorage) List(ctx context.Context, filter MetricFilter) ([]models.Metric, error) {
 	if !s.IsInitialized() {
 		return nil, fmt.Errorf("InfluxDB client is not initialized")
@@ -145,7 +141,6 @@ func (s *MetricStorage) List(ctx context.Context, filter MetricFilter) ([]models
 	return metrics, nil
 }
 
-// GetLatestMetricTime returns the timestamp of the most recent metric
 func (s *MetricStorage) GetLatestMetricTime(ctx context.Context) (time.Time, error) {
 	if !s.IsInitialized() {
 		return time.Time{}, fmt.Errorf("InfluxDB client is not initialized")
@@ -154,19 +149,16 @@ func (s *MetricStorage) GetLatestMetricTime(ctx context.Context) (time.Time, err
 	return s.storage.GetLatestTime(ctx, "metrics")
 }
 
-// IsInitialized checks if the InfluxDB client is properly initialized
 func (s *MetricStorage) IsInitialized() bool {
 	return s.storage != nil
 }
 
-// Close closes the InfluxDB connection
 func (s *MetricStorage) Close() {
 	if s.storage != nil {
 		s.storage.Close()
 	}
 }
 
-// parsePoint converts a Point to a Metric
 func (s *MetricStorage) parsePoint(point storage.Point) (models.Metric, error) {
 	executionTime, _ := point.Fields["execution_time"].(string)
 	startTime, _ := point.Fields["start_time"].(*string)

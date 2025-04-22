@@ -8,7 +8,6 @@ import (
 	"github.com/ebracha/airflow-observer/storage"
 )
 
-// Rule represents a monitoring rule
 type Rule struct {
 	ID          string            `json:"id"`
 	Name        string            `json:"name"`
@@ -20,7 +19,6 @@ type Rule struct {
 	UpdatedAt   time.Time         `json:"updated_at"`
 }
 
-// RuleStoreInterface defines the interface for rule storage
 type RuleStore interface {
 	StoreRule(ctx context.Context, rule *Rule) error
 	GetRule(ctx context.Context, id string) (*Rule, error)
@@ -31,19 +29,16 @@ type RuleStore interface {
 	Close() error
 }
 
-// RuleStore implements rule-specific operations
 type RuleStorage struct {
 	redis storage.Storage
 }
 
-// NewRuleStore creates a new RuleStore instance
 func NewRuleStore(redis storage.Storage) RuleStore {
 	return &RuleStorage{
 		redis: redis,
 	}
 }
 
-// StoreRule stores a rule
 func (s *RuleStorage) StoreRule(ctx context.Context, rule *Rule) error {
 	if rule.ID == "" {
 		return fmt.Errorf("rule ID cannot be empty")
@@ -57,7 +52,6 @@ func (s *RuleStorage) StoreRule(ctx context.Context, rule *Rule) error {
 	return s.redis.Set(ctx, rule.ID, rule, 0) // No expiration for rules
 }
 
-// GetRule retrieves a rule by ID
 func (s *RuleStorage) GetRule(ctx context.Context, id string) (*Rule, error) {
 	var rule Rule
 	if err := s.redis.Get(ctx, id, &rule); err != nil {
@@ -66,7 +60,6 @@ func (s *RuleStorage) GetRule(ctx context.Context, id string) (*Rule, error) {
 	return &rule, nil
 }
 
-// ListRules returns all rules
 func (s *RuleStorage) ListRules(ctx context.Context) ([]*Rule, error) {
 	keys, err := s.redis.ListKeys(ctx, "rule:*")
 	if err != nil {
@@ -85,12 +78,10 @@ func (s *RuleStorage) ListRules(ctx context.Context) ([]*Rule, error) {
 	return rules, nil
 }
 
-// DeleteRule removes a rule
 func (s *RuleStorage) DeleteRule(ctx context.Context, id string) error {
 	return s.redis.Delete(ctx, id)
 }
 
-// GetRulesByType returns all rules of a specific type
 func (s *RuleStorage) GetRulesByType(ctx context.Context, ruleType string) ([]*Rule, error) {
 	rules, err := s.ListRules(ctx)
 	if err != nil {
@@ -107,7 +98,6 @@ func (s *RuleStorage) GetRulesByType(ctx context.Context, ruleType string) ([]*R
 	return filtered, nil
 }
 
-// GetRulesByTag returns all rules that have a specific tag value
 func (s *RuleStorage) GetRulesByTag(ctx context.Context, tagKey, tagValue string) ([]*Rule, error) {
 	rules, err := s.ListRules(ctx)
 	if err != nil {
@@ -124,7 +114,6 @@ func (s *RuleStorage) GetRulesByTag(ctx context.Context, tagKey, tagValue string
 	return filtered, nil
 }
 
-// Close closes the Redis connection
 func (s *RuleStorage) Close() error {
 	return s.redis.Close()
 }

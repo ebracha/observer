@@ -17,7 +17,6 @@ import (
 	"github.com/ebracha/airflow-observer/store"
 )
 
-// Common types
 type Alert struct {
 	DagID     string
 	Timestamp time.Time
@@ -69,34 +68,11 @@ func NewWebHandler(store *store.Store) *WebHandler {
 	}
 }
 
-// Helper functions
-func (h *WebHandler) renderTemplate(w http.ResponseWriter, templateName string, data interface{}) error {
-	funcMap := template.FuncMap{
-		"unmarshal": func(s string) interface{} {
-			var result interface{}
-			json.Unmarshal([]byte(s), &result)
-			return result
-		},
-	}
-
-	templatePath := fmt.Sprintf("templates/%s.html", templateName)
-	tmpl, err := template.New(templateName).Funcs(funcMap).ParseFiles(templatePath)
-	if err != nil {
-		return fmt.Errorf("failed to parse template %s: %v", templatePath, err)
-	}
-
-	if err := tmpl.Execute(w, data); err != nil {
-		return fmt.Errorf("failed to execute template %s: %v", templateName, err)
-	}
-	return nil
-}
-
 func (h *WebHandler) handleError(w http.ResponseWriter, err error, message string) {
 	log.Printf("%s: %v", message, err)
 	http.Error(w, "Internal server error", http.StatusInternalServerError)
 }
 
-// Handler functions
 func (h *WebHandler) IndexHandler(w http.ResponseWriter, r *http.Request) {
 	// Define template functions
 	funcMap := template.FuncMap{
@@ -144,15 +120,6 @@ func (h *WebHandler) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get rules (still needed for context, but not for direct violation checking here)
-	// rules, err := h.store.Rules().ListRules(ctx)
-	// if err != nil {
-	// 	http.Error(w, fmt.Sprintf("Error getting rules: %v", err), http.StatusInternalServerError)
-	// 	return
-	// }
-	// slaRules := h.convertRulesToSLARules(rules) // Conversion might still be useful for display?
-
-	// --- Fetch VIOLATIONS from the ViolationStore ---
 	violationFilter := store.ViolationFilter{ // Assuming a ViolationFilter exists
 		StartTime: startTime,
 		EndTime:   endTime,
@@ -179,10 +146,8 @@ func (h *WebHandler) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 	// Get latest metric time (still relevant)
 	latestTime, err := h.store.Metrics().GetLatestMetricTime(ctx)
 	if err != nil {
-		// Handle error, maybe log and continue with zero time?
 		log.Printf("Error getting latest metric time: %v", err)
 		latestTime = time.Time{} // Use zero time
-		// Or return error: http.Error(w, fmt.Sprintf("Error getting latest metric time: %v", err), http.StatusInternalServerError); return
 	}
 
 	// Gather alerts from fetched violations
@@ -862,7 +827,6 @@ func (h *WebHandler) RulesHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
-
 	case http.MethodPost:
 		var err error       // Declare err once at the top of the block
 		err = r.ParseForm() // Use = for assignment
@@ -933,7 +897,6 @@ func (h *WebHandler) RulesHandler(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "text/html")
 		h.renderRulesTable(w)
-
 	case http.MethodDelete:
 		indexStr := r.URL.Path[len("/rules/"):]
 		index, err := strconv.Atoi(indexStr)
@@ -950,7 +913,6 @@ func (h *WebHandler) RulesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "text/html")
 		h.renderRulesTable(w)
-
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
