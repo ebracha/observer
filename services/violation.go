@@ -35,7 +35,7 @@ func (s *ViolationService) MetricChan() chan models.Metric {
 }
 
 func (s *ViolationService) Start(ctx context.Context) {
-	log.Println("Violation service started, listening for metrics...")
+	log.Println("Successfully started Violation service and listening for incoming metrics")
 	for {
 		select {
 		case <-ctx.Done():
