@@ -91,3 +91,14 @@ Access the dashboard at `http://localhost:8000/` to view:
 - Compliance rates
 - Violation statistics
 - Top performing DAGs
+
+### Integrating with Apache Airflow
+
+The Observer platform automatically captures OpenLineage events from Airflow when the plugin is installed. The metrics collector captures the following OpenLineage events:
+- Point the Airflow plugin to `/lineage/events` endpoint to capture all OpenLineage events
+
+## Technology Stack
+
+- **Backend**: Go
+- **Time-series Database**: InfluxDB
+- **Caching**: Redis
